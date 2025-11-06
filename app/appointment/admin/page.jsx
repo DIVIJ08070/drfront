@@ -164,28 +164,31 @@ export default function AdminDashboard() {
     }
   };
 
-  const makeUserAdmin = async () => {
-    const email = makeAdminEmail.trim();
-    if (!email) return alert("Enter email");
-    try {
-      const res = await fetch('https://medify-service-production.up.railway.app/v1/auth/make-admin', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.jwt}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email })
-      });
-      if (res.ok) {
-        alert(`${email} is now ADMIN!`);
-        setMakeAdminEmail("");
-      } else {
-        alert("Failed");
-      }
-    } catch {
-      alert("Error");
+
+
+
+const makeUserAdmin = async () => {
+  const email = makeAdminEmail.trim();
+  if (!email) return alert("Enter email");
+
+  const res = await fetch('https://medify-service-production.up.railway.app/v1/auth/make-admin', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.jwt}`,
+      'email': email
     }
-  };
+  });
+
+  if (res.ok) {
+    alert(`${email} is now ADMIN!`);
+    setMakeAdminEmail("");
+  } else {
+    alert("Failed — check email or JWT");
+  }
+};
+
+
+
 
   if (status === "loading" || loading) return <LoadingSpinner />;
   if (!session?.roles?.includes("ROLE_ADMIN")) return null;
@@ -218,7 +221,7 @@ export default function AdminDashboard() {
 
         <div style={{ padding: '2.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '3rem' }}>
-            <Link href="/admin/add-doctor">
+            <Link href="/appointment/admin/add-doctor">
               <button style={{ backgroundColor: '#10b981', color: 'white', padding: '1rem 2rem', borderRadius: '0.75rem', border: 'none', fontWeight: '700' }}>
                 + Add Doctor
               </button>

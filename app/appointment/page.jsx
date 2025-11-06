@@ -22,74 +22,146 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const PatientCard = ({ patient, onSelectPatient }) => (
-  <div
-    onClick={() => onSelectPatient(patient)}
-    style={{
-      backgroundColor: '#ffffff',
-      padding: '1.5rem',  // REDUCED FROM 1.75rem
-      borderRadius: '1rem',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
-      cursor: 'pointer',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      border: '2px solid transparent',
-      position: 'relative',
-      overflow: 'hidden',
-      height: 'fit-content',  // FIXED: no forced height
-      display: 'flex',
-      flexDirection: 'column',
-    }}
-    onMouseEnter={(e) => {
-      e.currentTarget.style.transform = 'translateY(-6px)';
-      e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
-      e.currentTarget.style.borderColor = '#3b82f6';
-    }}
-    onMouseLeave={(e) => {
-      e.currentTarget.style.transform = 'translateY(0)';
-      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05)';
-      e.currentTarget.style.borderColor = 'transparent';
-    }}
-  >
-    <h3 style={{
-      fontSize: '1.25rem',  // SMALLER
-      fontWeight: '700',
-      color: '#111827',
-      margin: '0 0 0.5rem 0',
-      lineHeight: '1.3'
-    }}>
-      {patient.name}
-    </h3>
-    <div style={{ 
-      display: 'flex', 
-      flexDirection: 'column', 
-      gap: '0.35rem',
-      fontSize: '0.875rem',
-      color: '#4b5563'
-    }}>
-      <p style={{ margin: 0 }}>Age: {patient.age} | Gender: {patient.gender || 'N/A'}</p>
-      {patient.phone && <p style={{ margin: 0 }}>Phone: {patient.phone}</p>}
-    </div>
-    <div style={{
-      marginTop: 'auto',
-      paddingTop: '0.75rem',
-      textAlign: 'right',
-      opacity: 0,
-      transition: 'opacity 0.3s'
-    }}
-    onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-    onMouseLeave={(e) => e.currentTarget.style.opacity = 0}
+const PatientCard = ({ patient, onSelectPatient, onViewHistory, appointments = [] }) => {
+  // Get patient's past appointments
+  const patientAppts = appointments.filter(a => 
+    a.reason?.includes(patient.name) || 
+    a.notes?.includes(patient.name) ||
+    a.reason?.toLowerCase().includes(patient.name.toLowerCase())
+  );
+
+  const hasHistory = patientAppts.length > 0;
+  const lastVisit = hasHistory ? patientAppts[0] : null;
+
+  const handleCardClick = (e) => {
+    // Only trigger if the click is directly on the card, not on buttons
+    if (e.target === e.currentTarget || e.target.closest('button') === null) {
+      onViewHistory(patient, patientAppts);
+    }
+  };
+
+  return (
+    <div
+      onClick={handleCardClick}
+      style={{
+        backgroundColor: '#ffffff',
+        padding: '1.5rem',
+        borderRadius: '1rem',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05)',
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        border: '2px solid transparent',
+        position: 'relative',
+        overflow: 'hidden',
+        height: 'fit-content',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-6px)';
+        e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)';
+        e.currentTarget.style.borderColor = '#3b82f6';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05)';
+        e.currentTarget.style.borderColor = 'transparent';
+      }}
     >
-      <span style={{ color: '#3b82f6', fontSize: '0.8rem', fontWeight: '600' }}>
-        Select →
-      </span>
+      <h3 style={{
+        fontSize: '1.25rem',
+        fontWeight: '700',
+        color: '#111827',
+        margin: '0 0 0.5rem 0',
+        lineHeight: '1.3'
+      }}>
+        {patient.name}
+      </h3>
+      
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '0.35rem',
+        fontSize: '0.875rem',
+        color: '#4b5563',
+        marginBottom: '0.75rem'
+      }}>
+        <p style={{ margin: 0 }}>Age: {patient.age}</p>
+        {patient.phone && <p style={{ margin: 0 }}>Phone: {patient.phone}</p>}
+      </div>
+
+      {/* HISTORY BADGE */}
+      {hasHistory && (
+        <div style={{
+          backgroundColor: '#ecfdf5',
+          border: '2px solid #10b981',
+          borderRadius: '0.75rem',
+          padding: '0.5rem 0.75rem',
+          marginBottom: '0.75rem',
+          fontSize: '0.8rem',
+          fontWeight: '600',
+          color: '#065f46'
+        }}>
+          Last Visit: Dr. {lastVisit.doctor.name} • {lastVisit.slot.start_time.slice(0,5)}
+        </div>
+      )}
+
+      {/* ACTION BUTTONS */}
+      <div style={{
+        display: 'flex',
+        gap: '0.5rem',
+        marginTop: 'auto'
+      }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelectPatient(patient);
+          }}
+          style={{
+            flex: 1,
+            backgroundColor: '#3b82f6',
+            color: 'white',
+            padding: '0.6rem',
+            borderRadius: '0.75rem',
+            border: 'none',
+            fontWeight: '700',
+            fontSize: '0.85rem',
+            cursor: 'pointer'
+          }}
+        >
+          Book Appointment
+        </button>
+        
+        {hasHistory && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewHistory(patient, patientAppts);
+            }}
+            style={{
+              backgroundColor: '#10b981',
+              color: 'white',
+              padding: '0.6rem 0.8rem',
+              borderRadius: '0.75rem',
+              border: 'none',
+              fontSize: '1.2rem',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            History
+          </button>
+        )}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function AppointmentPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [patients, setPatients] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
 
   useEffect(() => {
@@ -99,20 +171,37 @@ export default function AppointmentPage() {
   useEffect(() => {
     if (status === "authenticated" && session?.jwt) {
       setPatientsLoading(true);
+
+      // Fetch Patients
       fetch('https://medify-service-production.up.railway.app/v1/patients', {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       })
         .then(res => res.ok ? res.json() : Promise.reject())
         .then(data => setPatients(data.patients || []))
-        .catch(() => setPatients([]))
+        .catch(() => setPatients([]));
+
+      // Fetch All Appointments (for history)
+      fetch('https://medify-service-production.up.railway.app/v1/appointments', {
+        headers: { 'Authorization': `Bearer ${session.jwt}` }
+      })
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => setAppointments(data.appointments || []))
+        .catch(() => setAppointments([]))
         .finally(() => setPatientsLoading(false));
     }
   }, [status, session?.jwt]);
 
   const handleShowAddPatientForm = () => router.push('/appointment/add-patient');
+  
   const handleSelectPatient = (patient) => {
     localStorage.setItem('selectedPatient', JSON.stringify(patient));
     router.push('/appointment/book-appointment');
+  };
+
+  const handleViewHistory = (patient, patientAppointments) => {
+    localStorage.setItem('selectedPatient', JSON.stringify(patient));
+    localStorage.setItem('patientAppointments', JSON.stringify(patientAppointments));
+    router.push('/appointment/history');
   };
 
   if (status === "loading") return <LoadingSpinner />;
@@ -124,31 +213,12 @@ export default function AppointmentPage() {
           @keyframes spin { to { transform: rotate(360deg); } }
           .loader-spin { animation: spin 1s linear infinite; }
 
-          /* MOBILE PERFECTION — DESKTOP UNTOUCHED */
           @media (max-width: 768px) {
-            .main-container {
-              padding: 1rem !important;
-              margin: 0 !important;
-              border-radius: 1rem !important;
-              max-width: 100vw !important;
-            }
-            .header-section {
-              flex-direction: column !important;
-              text-align: center !important;
-              gap: 1rem !important;
-            }
-            .action-buttons {
-              flex-direction: column !important;
-              width: 100% !important;
-            }
-            .action-buttons button {
-              width: 100% !important;
-              padding: 1rem !important;
-            }
-            .patients-grid {
-              grid-template-columns: 1fr !important;
-              gap: 1rem !important;
-            }
+            .main-container { padding: 1rem !important; border-radius: 1rem !important; }
+            .header-section { flex-direction: column !important; text-align: center !important; }
+            .action-buttons { flex-direction: column !important; width: 100% !important; }
+            .action-buttons button { width: 100% !important; padding: 1rem !important; }
+            .patients-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
           }
         `}</style>
 
@@ -190,10 +260,10 @@ export default function AppointmentPage() {
             }}>
               <div>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: '700', color: '#111827', margin: 0 }}>
-                  Welcome, {session.user?.name}!
+                  Welcome, Dr. {session.user?.name}!
                 </h2>
                 <p style={{ color: '#6b7280', margin: '0.5rem 0 0' }}>
-                  Manage your patient appointments.
+                  Select a patient to book appointment
                 </p>
               </div>
               <button
@@ -222,7 +292,7 @@ export default function AppointmentPage() {
               gap: '1rem'
             }}>
               <h3 style={{ fontSize: '1.75rem', fontWeight: '600', color: '#111827', margin: 0 }}>
-                Your Patients
+                Your Patients ({patients.length})
               </h3>
               <button
                 onClick={handleShowAddPatientForm}
@@ -244,7 +314,7 @@ export default function AppointmentPage() {
             {/* Grid */}
             <div className="patients-grid" style={{
               display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
               gap: '1.5rem',
               flex: 1
             }}>
@@ -254,7 +324,13 @@ export default function AppointmentPage() {
                 </div>
               ) : patients.length > 0 ? (
                 patients.map((patient) => (
-                  <PatientCard key={patient.id} patient={patient} onSelectPatient={handleSelectPatient} />
+                  <PatientCard 
+                    key={patient.id} 
+                    patient={patient} 
+                    onSelectPatient={handleSelectPatient}
+                    onViewHistory={handleViewHistory}
+                    appointments={appointments}
+                  />
                 ))
               ) : (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '4rem', color: '#6b7280' }}>
