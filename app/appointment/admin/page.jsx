@@ -65,7 +65,6 @@ export default function AdminDashboard() {
     return `${d}/${m}/${y}`;
   };
 
-  // 100% WORKING: Filter on frontend (backend ignores date)
   const fetchSlots = async (doctorId, date) => {
     if (!doctorId || !date) {
       setSlots([]);
@@ -111,10 +110,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // ONLY THIS FUNCTION FIXED — EVERYTHING ELSE UNCHANGED
   const addSlot = async (start, end) => {
     const [year, month, day] = selectedDate.split('-');
-    const apiDate = `${day}-${month}-${year}`; // DD-MM-YYYY
+    const apiDate = `${day}-${month}-${year}`;
 
     const payload = {
       doctor_id: selectedDoctor.id,
@@ -164,31 +162,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const makeUserAdmin = async () => {
+    const email = makeAdminEmail.trim();
+    if (!email) return alert("Enter email");
 
+    const res = await fetch('https://medify-service-production.up.railway.app/v1/auth/make-admin', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${session.jwt}`,
+        'email': email
+      }
+    });
 
-
-const makeUserAdmin = async () => {
-  const email = makeAdminEmail.trim();
-  if (!email) return alert("Enter email");
-
-  const res = await fetch('https://medify-service-production.up.railway.app/v1/auth/make-admin', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${session.jwt}`,
-      'email': email
+    if (res.ok) {
+      alert(`${email} is now ADMIN!`);
+      setMakeAdminEmail("");
+    } else {
+      alert("Failed — check email or JWT");
     }
-  });
-
-  if (res.ok) {
-    alert(`${email} is now ADMIN!`);
-    setMakeAdminEmail("");
-  } else {
-    alert("Failed — check email or JWT");
-  }
-};
-
-
-
+  };
 
   if (status === "loading" || loading) return <LoadingSpinner />;
   if (!session?.roles?.includes("ROLE_ADMIN")) return null;
@@ -261,7 +253,6 @@ const makeUserAdmin = async () => {
               {doctors.map(doctor => (
                 <div
                   key={doctor.id}
-                  onClick={() => handleDoctorSelect(doctor)}
                   style={{
                     backgroundColor: selectedDoctor?.id === doctor.id ? '#dbeafe' : '#f8fafc',
                     border: selectedDoctor?.id === doctor.id ? '4px solid #3b82f6' : '2px solid #e2e8f0',
@@ -270,19 +261,43 @@ const makeUserAdmin = async () => {
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
                     boxShadow: selectedDoctor?.id === doctor.id ? '0 10px 25px rgba(59, 130, 246, 0.25)' : '0 4px 12px rgba(0,0,0,0.08)',
+                    position: 'relative'
                   }}
                 >
-                  <h3 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: '#1e40af' }}>
-                    Dr. {doctor.name}
-                  </h3>
-                  <p style={{ margin: '0.5rem 0 0', fontSize: '1.1rem', color: '#4b5563' }}>
-                    {doctor.specialization}
-                  </p>
+                  <div onClick={() => handleDoctorSelect(doctor)}>
+                    <h3 style={{ fontSize: '1.5rem', fontWeight: '700', margin: 0, color: '#1e40af' }}>
+                      Dr. {doctor.name}
+                    </h3>
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '1.1rem', color: '#4b5563' }}>
+                      {doctor.specialization}
+                    </p>
+                  </div>
+
+                  {/* NEW BUTTON - View Appointments */}
+                  <button
+                    onClick={() => router.push(`/appointment/admin/doctor-appointments/${doctor.id}`)}
+                    style={{
+                      marginTop: '1rem',
+                      backgroundColor: '#3b82f6',
+                      color: 'white',
+                      padding: '0.75rem 1.5rem',
+                      borderRadius: '0.75rem',
+                      border: 'none',
+                      fontWeight: '700',
+                      fontSize: '0.95rem',
+                      cursor: 'pointer',
+                      width: '100%',
+                      boxShadow: '0 4px 12px rgba(59,130,246,0.3)'
+                    }}
+                  >
+                    View Appointments
+                  </button>
                 </div>
               ))}
             </div>
           </section>
 
+          {/* YOUR ORIGINAL SLOT SECTION - 100% UNCHANGED */}
           {selectedDoctor && (
             <section style={{ backgroundColor: '#fffbeb', padding: '2.5rem', borderRadius: '1.5rem', border: '3px dashed #f59e0b' }}>
               <h2 style={{ fontSize: '2rem', fontWeight: '700', margin: '0 0 2rem', color: '#92400e', textAlign: 'center' }}>
