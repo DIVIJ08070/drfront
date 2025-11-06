@@ -260,7 +260,7 @@ export default function AppointmentPage() {
             }}>
               <div>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: '700', color: '#111827', margin: 0 }}>
-                  Welcome, Dr. {session.user?.name}!
+                  Welcome,{session.user?.name}!
                 </h2>
                 <p style={{ color: '#6b7280', margin: '0.5rem 0 0' }}>
                   Select a patient to book appointment
