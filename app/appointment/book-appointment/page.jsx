@@ -126,7 +126,6 @@ export default function BookAppointmentPage() {
 
     setBookingLoading(true);
     try {
-      // Double-check slot availability
       const res = await fetch(`https://medify-service-production.up.railway.app/v1/doctors/slots?doctorId=${selectedDoctor.id}`, {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       });
@@ -168,7 +167,7 @@ export default function BookAppointmentPage() {
         alert("Failed to book: " + (JSON.parse(err)?.message || "Try again"));
       }
     } catch (err) {
-      alert("Network error. Please try again.");
+        alert("Network error. Please try again.");
     } finally {
       setBookingLoading(false);
     }
@@ -195,7 +194,7 @@ export default function BookAppointmentPage() {
           </p>
           {patient && (
             <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '1rem', display: 'inline-block' }}>
-              <strong>{patient.name}</strong> • Age: {patient.age} • ID: {patient.id}
+              <strong>{patient.name}</strong> • Age: {patient.age}
             </div>
           )}
         </div>
@@ -216,7 +215,7 @@ export default function BookAppointmentPage() {
                 }}>
                   <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1e40af', margin: 0 }}>Dr. {d.name}</h3>
                   <p style={{ fontSize: '1.2rem', color: '#4b5563', margin: '0.75rem 0' }}>{d.specialization}</p>
-                  <p style={{ fontSize: '1rem', color: '#6b7280' }}>Exp: {d.experience} yrs • ID: {d.id}</p>
+                  <p style={{ fontSize: '1rem', color: '#6b7280' }}>Exp: {d.experience} yrs</p>
                 </div>
               ))}
             </div>
@@ -271,7 +270,7 @@ export default function BookAppointmentPage() {
               </h2>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
                 <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1.5rem', border: '3px solid #e5e7eb' }}>
-                  <p><strong>Patient:</strong> {patient.name} (ID: {patient.id})</p>
+                  <p><strong>Patient:</strong> {patient.name}</p>
                   <p><strong>Doctor:</strong> Dr. {selectedDoctor.name}</p>
                   <p><strong>Date:</strong> {selectedSlot.dateFormatted}</p>
                   <p><strong>Time:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}</p>

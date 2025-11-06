@@ -31,11 +31,11 @@ export default function PatientHistoryPage() {
       const patientData = JSON.parse(saved);
       setPatient(patientData);
 
-      // SEND patientId IN HEADER — EXACTLY LIKE POSTMAN
+      // EXACT POSTMAN HEADER — patientId
       fetch('https://medify-service-production.up.railway.app/v1/appointments', {
         headers: {
           'Authorization': `Bearer ${session.jwt}`,
-          'patientId': patientData.id.toString(),  // THIS IS THE KEY
+          'patientId': patientData.id.toString(),
           'Content-Type': 'application/json'
         }
       })
@@ -45,7 +45,6 @@ export default function PatientHistoryPage() {
         })
         .then(data => {
           const appts = data.appointments || [];
-          console.log(`Patient ${patientData.id} → ${appts.length} appointments loaded`);
           setAppointments(appts);
         })
         .catch(err => {
@@ -58,6 +57,16 @@ export default function PatientHistoryPage() {
 
   const formatDate = (d) => d.split('-').reverse().join('/');
   const formatTime = (t) => t.slice(0, 5);
+
+  const getStatusStyle = (status) => {
+    switch (status?.toUpperCase()) {
+      case 'PENDING': return { color: '#f59e0b', text: 'PENDING' };
+      case 'CONFIRMED': return { color: '#10b981', text: 'CONFIRMED' };
+      case 'CANCELLED': return { color: '#dc2626', text: 'CANCELLED' };
+      case 'COMPLETED': return { color: '#3b82f6', text: 'COMPLETED' };
+      default: return { color: '#6b7280', text: status || 'UNKNOWN' };
+    }
+  };
 
   const handleBook = () => {
     localStorage.setItem('selectedPatient', JSON.stringify(patient));
@@ -97,7 +106,7 @@ export default function PatientHistoryPage() {
           <h1 style={{ fontSize: '3.5rem', fontWeight: '900', margin: 0 }}>History</h1>
           <h2 style={{ fontSize: '2.2rem', margin: '1rem 0' }}>{patient.name}</h2>
           <p style={{ margin: 0, opacity: 0.9, fontSize: '1.3rem' }}>
-            Age: {patient.age} • ID: {patient.id} • Visits: {appointments.length}
+            Age: {patient.age} • Visits: {appointments.length}
           </p>
         </div>
 
@@ -118,62 +127,66 @@ export default function PatientHistoryPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
               {appointments
                 .sort((a, b) => new Date(b.slot.slot_date) - new Date(a.slot.slot_date))
-                .map((appt, i) => (
-                  <div key={appt.id} style={{
-                    backgroundColor: i === 0 ? '#ecfdf5' : '#f8fafc',
-                    border: i === 0 ? '5px solid #10b981' : '3px solid #e2e8f0',
-                    borderRadius: '1.5rem',
-                    padding: '2rem',
-                    position: 'relative',
-                    boxShadow: i === 0 ? '0 25px 50px rgba(16,185,129,0.25)' : '0 10px 25px rgba(0,0,0,0.1)'
-                  }}>
-                    {i === 0 && (
-                      <div style={{
-                        position: 'absolute', top: '-18px', right: '30px',
-                        backgroundColor: '#10b981', color: 'white', padding: '1rem 2.5rem',
-                        borderRadius: '999px', fontWeight: '900', fontSize: '1.2rem', letterSpacing: '1px'
-                      }}>
-                        LATEST VISIT
+                .map((appt, i) => {
+                  const statusStyle = getStatusStyle(appt.status);
+                  return (
+                    <div key={appt.id} style={{
+                      backgroundColor: i === 0 ? '#ecfdf5' : '#f8fafc',
+                      border: i === 0 ? '5px solid #10b981' : '3px solid #e2e8f0',
+                      borderRadius: '1.5rem',
+                      padding: '2rem',
+                      position: 'relative',
+                      boxShadow: i === 0 ? '0 25px 50px rgba(16,185,129,0.25)' : '0 10px 25px rgba(0,0,0,0.1)'
+                    }}>
+                      {i === 0 && (
+                        <div style={{
+                          position: 'absolute', top: '-18px', right: '30px',
+                          backgroundColor: '#10b981', color: 'white', padding: '1rem 2.5rem',
+                          borderRadius: '999px', fontWeight: '900', fontSize: '1.2rem', letterSpacing: '1px'
+                        }}>
+                          LATEST VISIT
+                        </div>
+                      )}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+                        <div>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Date:</strong> {formatDate(appt.slot.slot_date)}
+                          </p>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Time:</strong> {formatTime(appt.slot.start_time)} - {formatTime(appt.slot.end_time)}
+                          </p>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Status:</strong>{' '}
+                            <span style={{ 
+                              color: statusStyle.color,
+                              fontWeight: '900', 
+                              fontSize: '1.3rem'
+                            }}>
+                              {statusStyle.text}
+                            </span>
+                          </p>
+                        </div>
+                        <div>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Doctor:</strong> Dr. {appt.doctor.name}
+                          </p>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Specialization:</strong> {appt.doctor.specialization}
+                          </p>
+                          <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
+                            <strong>Fees:</strong> ₹{appt.price}
+                          </p>
+                        </div>
                       </div>
-                    )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-                      <div>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Date:</strong> {formatDate(appt.slot.slot_date)}
-                        </p>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Time:</strong> {formatTime(appt.slot.start_time)} - {formatTime(appt.slot.end_time)}
-                        </p>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Status:</strong>{' '}
-                          <span style={{ 
-                            color: appt.payment_status === 'PAID' ? '#10b981' : '#dc2626',
-                            fontWeight: '900', fontSize: '1.3rem'
-                          }}>
-                            {appt.payment_status}
-                          </span>
-                        </p>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Doctor:</strong> Dr. {appt.doctor.name}
-                        </p>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Specialization:</strong> {appt.doctor.specialization}
-                        </p>
-                        <p style={{ fontSize: '1.2rem', margin: '0.8rem 0' }}>
-                          <strong>Fees:</strong> ₹{appt.price}
-                        </p>
-                      </div>
+                      {(appt.reason || appt.notes) && (
+                        <div style={{ marginTop: '1.5rem', padding: '1.5rem', backgroundColor: 'white', borderRadius: '1rem', border: '2px solid #e5e7eb' }}>
+                          {appt.reason && <p style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}><strong>Reason:</strong> {appt.reason}</p>}
+                          {appt.notes && <p style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}><strong>Notes:</strong> {appt.notes}</p>}
+                        </div>
+                      )}
                     </div>
-                    {(appt.reason || appt.notes) && (
-                      <div style={{ marginTop: '1.5rem', padding: '1.5rem', backgroundColor: 'white', borderRadius: '1rem', border: '2px solid #e5e7eb' }}>
-                        {appt.reason && <p style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}><strong>Reason:</strong> {appt.reason}</p>}
-                        {appt.notes && <p style={{ margin: '0.5rem 0', fontSize: '1.1rem' }}><strong>Notes:</strong> {appt.notes}</p>}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
             </div>
           )}
 
