@@ -1,0 +1,15 @@
+/* globals.css */
+html,
+body {
+  background: transparent !important; /* Or match your gradient: linear-gradient(to bottom right, #DBEAFE, #C7D2FE) */
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-x: hidden; /* Prevents horizontal scroll artifacts */
+}
+
+#root, /* Or your app's root div if wrapped */
+#__next {
+  min-height: 100vh;
+  background: inherit; /* Inherits the gradient from <main> */
+}

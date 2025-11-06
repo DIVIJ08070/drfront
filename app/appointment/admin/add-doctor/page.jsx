@@ -1,30 +1,30 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 
-const LoadingSpinner = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '2rem' }}>
-    <div style={{ width: '2.5rem', height: '2.5rem', border: '4px dashed #3b82f6', borderRadius: '50%', borderTopColor: 'transparent' }} />
-  </div>
-);
-
-export default function AddPatientPage() {
+export default function AddDoctorPage() {
   const router = useRouter();
   const { data: session, status } = useSession();
 
   const [formData, setFormData] = useState({
     name: '',
-    address: '',
-    age: '',
-    dob: '',
+    email: '',
+    degree: '',
+    specialization: '',
+    experience: '',
+    gender: 'MALE',
     phone_number: '',
-    weight: '',
-    height: '',
   });
 
   const [submitting, setSubmitting] = useState(false);
+
+  // Redirect non-admins
+  if (status === "authenticated" && !session?.roles?.includes("ROLE_ADMIN")) {
+    router.push("/appointment");
+    return null;
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -37,28 +37,13 @@ export default function AddPatientPage() {
 
     setSubmitting(true);
 
-    // Format DOB as DD-MM-YYYY
-    const formatDate = (dateStr) => {
-      if (!dateStr) return null;
-      const d = new Date(dateStr);
-      const day = String(d.getDate()).padStart(2, '0');
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const year = d.getFullYear();
-      return `${day}-${month}-${year}`;
-    };
-
     const payload = {
-      name: formData.name,
-      address: formData.address,
-      age: parseInt(formData.age) || null,
-      height: formData.height ? parseFloat(formData.height) : null,
-      weight: formData.weight ? parseFloat(formData.weight) : null,
-      dob: formatDate(formData.dob),
-      phone_number: formData.phone_number,
+      ...formData,
+      experience: parseInt(formData.experience) || 0,
     };
 
     try {
-      const res = await fetch('https://medify-service-production.up.railway.app/v1/patients', {
+      const res = await fetch('https://medify-service-production.up.railway.app/v1/doctors', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.jwt}`,
@@ -68,8 +53,8 @@ export default function AddPatientPage() {
       });
 
       if (res.ok) {
-        alert("Patient added successfully!");
-        router.push('/appointment');
+        alert("Doctor added successfully!");
+        router.push('/appointment/admin');
       } else {
         const err = await res.json().catch(() => ({}));
         alert(`Failed: ${err.message || res.status}`);
@@ -81,7 +66,13 @@ export default function AddPatientPage() {
     }
   };
 
-  if (status === "loading") return <LoadingSpinner />;
+  if (status === "loading") {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div style={{ width: '3rem', height: '3rem', border: '5px dashed #3b82f6', borderRadius: '50%', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
 
   return (
     <main style={{
@@ -95,20 +86,26 @@ export default function AddPatientPage() {
     }}>
       <div style={{
         backgroundColor: '#ffffff',
-        padding: '2rem 2.5rem',
+        padding: '2.5rem 3rem',
         borderRadius: '1rem',
-        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
         width: '100%',
-        maxWidth: '32rem',
-        boxSizing: 'border-box'
+        maxWidth: '36rem',
+        boxSizing: 'border-box',
       }}>
-        <h2 style={{ fontSize: '1.875rem', fontWeight: '700', color: '#111827', marginBottom: '1.5rem' }}>
-          Add New Patient
+        <h2 style={{
+          fontSize: '2rem',
+          fontWeight: '700',
+          color: '#111827',
+          marginBottom: '1.5rem',
+          textAlign: 'center',
+        }}>
+          Add New Doctor
         </h2>
 
-        <form onSubmit={handleSubmit} style={{ marginTop: '1.5rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {/* Full Name */}
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+            {/* Name */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                 Full Name
@@ -119,57 +116,101 @@ export default function AddPatientPage() {
                 value={formData.name}
                 onChange={handleChange}
                 required
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
+                placeholder="Dr. John Doe"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }}
               />
             </div>
 
-            {/* Address */}
+            {/* Email */}
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                Address
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                placeholder="doctor@example.com"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '1rem' }}
+              />
+            </div>
+
+            {/* Degree */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+                Degree
               </label>
               <input
                 type="text"
-                name="address"
-                value={formData.address}
+                name="degree"
+                value={formData.degree}
                 onChange={handleChange}
                 required
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
+                placeholder="MBBS, MD"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
               />
             </div>
 
-            {/* Age */}
+            {/* Specialization */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                Age
+                Specialization
+              </label>
+              <input
+                type="text"
+                name="specialization"
+                value={formData.specialization}
+                onChange={handleChange}
+                required
+                placeholder="Neurology"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
+              />
+            </div>
+
+            {/* Experience */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
+                Experience (years)
               </label>
               <input
                 type="number"
-                name="age"
-                value={formData.age}
+                name="experience"
+                value={formData.experience}
                 onChange={handleChange}
                 required
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
+                min="0"
+                placeholder="10"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
               />
             </div>
 
-            {/* DOB */}
+            {/* Gender */}
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                Date of Birth
+                Gender
               </label>
-              <input
-                type="date"
-                name="dob"
-                value={formData.dob}
+              <select
+                name="gender"
+                value={formData.gender}
                 onChange={handleChange}
-                required
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
-              />
+                style={{
+                  width: '100%',
+                  padding: '0.75rem 1rem',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '0.5rem',
+                  background: 'white',
+                  fontSize: '1rem',
+                }}
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+              </select>
             </div>
 
-            {/* Phone Number */}
-            <div>
+            {/* Phone */}
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                 Phone Number
               </label>
@@ -180,60 +221,26 @@ export default function AddPatientPage() {
                 onChange={handleChange}
                 required
                 pattern="[0-9]{10}"
-                placeholder="7203979619"
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Weight (kg) */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                Weight (kg)
-              </label>
-              <input
-                type="number"
-                name="weight"
-                value={formData.weight}
-                onChange={handleChange}
-                step="0.1"
-                placeholder="66"
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            {/* Height (feet) */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
-                Height (feet)
-              </label>
-              <input
-                type="number"
-                name="height"
-                value={formData.height}
-                onChange={handleChange}
-                step="0.1"
-                placeholder="5.6"
-                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
+                placeholder="9876543210"
+                style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem' }}
               />
             </div>
           </div>
 
-          {/* Buttons */}
           <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
             <button
               type="button"
-              onClick={() => router.push('/appointment')}
+              onClick={() => router.push('/appointment/admin')}
               disabled={submitting}
               style={{
                 width: '100%',
                 backgroundColor: '#e5e7eb',
                 color: '#374151',
-                fontWeight: '500',
                 padding: '0.75rem 1rem',
                 borderRadius: '0.5rem',
                 border: 'none',
+                fontWeight: '500',
                 cursor: 'pointer',
-                opacity: submitting ? 0.6 : 1,
               }}
             >
               Cancel
@@ -243,17 +250,16 @@ export default function AddPatientPage() {
               disabled={submitting}
               style={{
                 width: '100%',
-                backgroundColor: '#3b82f6',
-                color: '#ffffff',
-                fontWeight: '500',
+                backgroundColor: '#10b981',
+                color: 'white',
                 padding: '0.75rem 1rem',
                 borderRadius: '0.5rem',
                 border: 'none',
+                fontWeight: '600',
                 cursor: 'pointer',
-                opacity: submitting ? 0.6 : 1,
               }}
             >
-              {submitting ? 'Saving...' : 'Save Patient'}
+              {submitting ? 'Saving...' : 'Save Doctor'}
             </button>
           </div>
         </form>
