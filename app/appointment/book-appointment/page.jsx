@@ -27,7 +27,9 @@ export default function BookAppointmentPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState({ reason: "", notes_internal: "" });
 
+  // Refs
   const dateSectionRef = useRef(null);
+  const bookingFormRef = useRef(null);
   const contentRef = useRef(null);
 
   useEffect(() => {
@@ -103,12 +105,24 @@ export default function BookAppointmentPage() {
     }
   };
 
-  // AUTO SCROLL — WORKS ON DESKTOP & MOBILE
+  // AUTO SCROLL TO DATE PICKER
   const scrollToDatePicker = () => {
     if (!dateSectionRef.current || !contentRef.current) return;
-
-    const headerOffset = window.innerWidth <= 640 ? 160 : 200; // Mobile vs Desktop
+    const headerOffset = window.innerWidth <= 640 ? 160 : 200;
     const elementPosition = dateSectionRef.current.getBoundingClientRect().top + window.pageYOffset;
+    const offsetPosition = elementPosition - headerOffset;
+
+    contentRef.current.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
+  };
+
+  // AUTO SCROLL TO CONFIRM FORM
+  const scrollToConfirmForm = () => {
+    if (!bookingFormRef.current || !contentRef.current) return;
+    const headerOffset = window.innerWidth <= 640 ? 140 : 180;
+    const elementPosition = bookingFormRef.current.getBoundingClientRect().top + window.pageYOffset;
     const offsetPosition = elementPosition - headerOffset;
 
     contentRef.current.scrollTo({
@@ -123,8 +137,6 @@ export default function BookAppointmentPage() {
     setAvailableSlots([]);
     setSelectedSlot(null);
     setShowBookingForm(false);
-
-    // Auto-scroll after state update
     setTimeout(scrollToDatePicker, 100);
   };
 
@@ -139,6 +151,8 @@ export default function BookAppointmentPage() {
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
     setShowBookingForm(true);
+    // Auto-scroll to confirm form after render
+    setTimeout(scrollToConfirmForm, 150);
   };
 
   const handleBookAppointment = async () => {
@@ -228,7 +242,7 @@ export default function BookAppointmentPage() {
             font-weight: 600; color: #1e40af;
           }
 
-          /* MOBILE-ONLY: Smaller, fitted calendar */
+          /* MOBILE: Smaller calendar */
           .date-input-wrapper { 
             margin: 0 0 1.2rem !important; 
             padding: 0 0.5rem !important; 
@@ -271,7 +285,7 @@ export default function BookAppointmentPage() {
           .booking-form button { 
             padding: 0.8rem 1.5rem !important; font-size: 1rem !important; 
             width: 100% !important; max-width: 220px !important; 
-            border-radius: 1.2rem !important; margin: 1rem, auto 0 !important; display: block !important;
+            border-radius: 1.2rem !important; margin: 1rem auto 0 !important; display: block !important;
           }
         }
       `}</style>
@@ -322,7 +336,7 @@ export default function BookAppointmentPage() {
               </div>
             </section>
 
-            {/* Date Picker — DESKTOP: UNCHANGED, MOBILE: FITTED */}
+            {/* Date Picker */}
             {selectedDoctor && (
               <>
                 <div ref={dateSectionRef} className="date-hint" style={{
@@ -351,7 +365,6 @@ export default function BookAppointmentPage() {
                   />
                 </div>
 
-                {/* Slots & Booking Form */}
                 {selectedDate && (
                   slotsLoading ? (
                     <div style={{ textAlign: 'center', padding: '4rem' }}>
@@ -383,9 +396,9 @@ export default function BookAppointmentPage() {
               </>
             )}
 
-            {/* Confirm Form */}
+            {/* Confirm Form — AUTO-SCROLL TARGET */}
             {showBookingForm && selectedSlot && (
-              <div className="booking-form" style={{ marginTop: '3rem', padding: '2rem', backgroundColor: '#f8fafc', borderRadius: '1.5rem', border: '4px solid #3b82f6' }}>
+              <div ref={bookingFormRef} className="booking-form" style={{ marginTop: '3rem', padding: '2rem', backgroundColor: '#f8fafc', borderRadius: '1.5rem', border: '4px solid #3b82f6' }}>
                 <h2 style={{ fontSize: '1.9rem', fontWeight: '900', textAlign: 'center', color: '#1e40af', marginBottom: '1.2rem' }}>
                   Confirm Appointment
                 </h2>
