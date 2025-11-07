@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const LoadingSpinner = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)' }}>
@@ -26,6 +26,9 @@ export default function BookAppointmentPage() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState({ reason: "", notes_internal: "" });
+
+  const dateSectionRef = useRef(null);
+  const contentRef = useRef(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push('/');
@@ -100,12 +103,29 @@ export default function BookAppointmentPage() {
     }
   };
 
+  // AUTO SCROLL — WORKS ON DESKTOP & MOBILE
+  const scrollToDatePicker = () => {
+    if (!dateSectionRef.current || !contentRef.current) return;
+
+    const headerOffset = window.innerWidth <= 640 ? 160 : 200; // Mobile vs Desktop
+    const elementPosition = dateSectionRef.current.getBoundingClientRect().top + window.pageYOffset;
+    const offsetPosition = elementPosition - headerOffset;
+
+    contentRef.current.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
+  };
+
   const handleDoctorSelect = (doctor) => {
     setSelectedDoctor(doctor);
     setSelectedDate("");
     setAvailableSlots([]);
     setSelectedSlot(null);
     setShowBookingForm(false);
+
+    // Auto-scroll after state update
+    setTimeout(scrollToDatePicker, 100);
   };
 
   const handleDateChange = (e) => {
@@ -167,7 +187,7 @@ export default function BookAppointmentPage() {
         alert("Failed to book: " + (JSON.parse(err)?.message || "Try again"));
       }
     } catch (err) {
-        alert("Network error. Please try again.");
+      alert("Network error. Please try again.");
     } finally {
       setBookingLoading(false);
     }
@@ -176,124 +196,226 @@ export default function BookAppointmentPage() {
   if (status === "loading" || loading) return <LoadingSpinner />;
 
   return (
-    <main style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)', padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: 'white', borderRadius: '2rem', boxShadow: '0 25px 50px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
-        
-        {/* Header */}
-        <div style={{ background: 'linear-gradient(to right, #1e40af, #3b82f6)', color: 'white', padding: '3rem', textAlign: 'center', position: 'relative' }}>
-          <button onClick={() => router.push('/appointment')} style={{
-            position: 'absolute', left: '2rem', top: '50%', transform: 'translateY(-50%)',
-            backgroundColor: 'rgba(255,255,255,0.25)', color: 'white', border: 'none', padding: '1rem 2rem',
-            borderRadius: '1rem', fontWeight: '700', backdropFilter: 'blur(10px)', cursor: 'pointer'
-          }}>
-            ← Patients
-          </button>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: '900', margin: 0 }}>Book Appointment</h1>
-          <p style={{ fontSize: '1.5rem', margin: '1rem 0 0', opacity: 0.9 }}>
-            Dr. {session?.user?.name}
-          </p>
-          {patient && (
-            <div style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '1rem', display: 'inline-block' }}>
-              <strong>{patient.name}</strong> • Age: {patient.age}
-            </div>
-          )}
-        </div>
+    <>
+      <style jsx>{`
+        @media (max-width: 640px) {
+          .mobile-fullscreen { padding: 0 !important; }
+          .mobile-container { 
+            max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; 
+            box-shadow: none !important; height: 100vh !important; display: flex !important; 
+            flex-direction: column !important; overflow: hidden !important;
+          }
+          .mobile-header { padding: 1.5rem 1rem 1rem !important; }
+          .mobile-header h1 { font-size: 1.8rem !important; }
+          .mobile-header p { font-size: 1rem !important; margin: 0.4rem 0 0 !important; }
+          .mobile-header button { padding: 0.5rem 0.8rem !important; font-size: 0.85rem !important; left: 0.6rem !important; border-radius: 0.7rem !important; }
+          .patient-info { font-size: 0.85rem !important; padding: 0.5rem 0.9rem !important; margin-top: 0.8rem !important; border-radius: 0.7rem !important; }
 
-        <div style={{ padding: '3rem' }}>
+          .mobile-content { 
+            flex: 1 !important; overflow-y: auto !important; padding: 1rem !important; 
+            scroll-behavior: smooth !important;
+          }
 
-          {/* Doctors Grid */}
-          <section style={{ marginBottom: '4rem' }}>
-            <h2 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '2rem', color: '#1f2937' }}>Select Doctor</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '2rem' }}>
-              {doctors.map(d => (
-                <div key={d.id} onClick={() => handleDoctorSelect(d)} style={{
-                  backgroundColor: selectedDoctor?.id === d.id ? '#dbeafe' : '#f8fafc',
-                  border: selectedDoctor?.id === d.id ? '4px solid #3b82f6' : '3px solid #e2e8f0',
-                  padding: '2rem', borderRadius: '1.5rem', cursor: 'pointer',
-                  boxShadow: selectedDoctor?.id === d.id ? '0 20px 40px rgba(59,130,246,0.2)' : '0 10px 25px rgba(0,0,0,0.1)',
-                  transition: 'all 0.3s ease', transform: selectedDoctor?.id === d.id ? 'scale(1.03)' : 'scale(1)'
+          .mobile-section h2 { font-size: 1.5rem !important; margin-bottom: 0.8rem !important; }
+          .doctor-grid { gap: 0.8rem !important; }
+          .doctor-card { padding: 1rem !important; border-radius: 0.9rem !important; }
+          .doctor-card h3 { font-size: 1.1rem !important; }
+          .doctor-card p { font-size: 0.85rem !important; margin: 0.3rem 0 !important; }
+
+          .date-hint { 
+            text-align: center; padding: 0.8rem 1rem; background: #dbeafe; 
+            border-radius: 0.8rem; margin: 1rem 0; font-size: 0.9rem; 
+            font-weight: 600; color: #1e40af;
+          }
+
+          /* MOBILE-ONLY: Smaller, fitted calendar */
+          .date-input-wrapper { 
+            margin: 0 0 1.2rem !important; 
+            padding: 0 0.5rem !important; 
+            box-sizing: border-box !important;
+          }
+          .date-input { 
+            width: 100% !important; 
+            padding: 0.65rem 0.5rem !important; 
+            font-size: 0.9rem !important; 
+            border: 3px solid #fbbf24 !important; 
+            border-radius: 0.9rem !important; 
+            box-sizing: border-box !important;
+            max-width: 100% !important;
+          }
+
+          .slot-grid { gap: 0.7rem !important; }
+          .slot-card { padding: 0.9rem !important; border-radius: 0.9rem !important; }
+          .slot-card div:first-child { font-size: 1rem !important; }
+          .slot-card div:last-child { font-size: 0.7rem !important; }
+
+          .no-slots-box { padding: 2rem 1.2rem !important; border-radius: 1rem !important; }
+          .no-slots-box p { font-size: 1.1rem !important; }
+
+          .booking-form { 
+            padding: 1rem !important; margin-top: 1.5rem !important; 
+            border-radius: 1rem !important; overflow: hidden !important;
+            border: 3px solid #3b82f6 !important;
+          }
+          .booking-form h2 { font-size: 1.4rem !important; margin-bottom: 0.8rem !important; }
+          .booking-form .grid { gap: 0.8rem !important; display: flex !important; flex-direction: column !important; }
+          .booking-form .info-box { padding: 0.9rem !important; border-radius: 0.8rem !important; font-size: 0.8rem !important; line-height: 1.3 !important; }
+          .booking-form .info-box p { margin: 0.2rem 0 !important; }
+          .booking-form label { font-size: 0.9rem !important; margin-bottom: 0.3rem !important; font-weight: 600 !important; }
+          .booking-form input, .booking-form textarea { 
+            width: 100% !important; padding: 0.5rem !important; font-size: 0.85rem !important; 
+            border: 2px solid #d1d5db !important; border-radius: 0.7rem !important; 
+            box-sizing: border-box !important; max-width: 100% !important; overflow: hidden !important;
+          }
+          .booking-form textarea { min-height: 50px !important; margin-top: 0.3rem !important; resize: none !important; }
+          .booking-form button { 
+            padding: 0.8rem 1.5rem !important; font-size: 1rem !important; 
+            width: 100% !important; max-width: 220px !important; 
+            border-radius: 1.2rem !important; margin: 1rem, auto 0 !important; display: block !important;
+          }
+        }
+      `}</style>
+
+      <main className="mobile-fullscreen" style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)', padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>
+        <div className="mobile-container" style={{ maxWidth: '1200px', margin: '0 auto', backgroundColor: 'white', borderRadius: '2rem', boxShadow: '0 25px 50px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+          
+          {/* Header */}
+          <div className="mobile-header" style={{ background: 'linear-gradient(to right, #1e40af, #3b82f6)', color: 'white', padding: '3rem', textAlign: 'center', position: 'relative' }}>
+            <button onClick={() => router.push('/appointment')} style={{
+              position: 'absolute', left: '2rem', top: '50%', transform: 'translateY(-50%)',
+              backgroundColor: 'rgba(255,255,255,0.25)', color: 'white', border: 'none', padding: '1rem 2rem',
+              borderRadius: '1rem', fontWeight: '700', backdropFilter: 'blur(10px)', cursor: 'pointer'
+            }}>
+              Patients
+            </button>
+            <h1 style={{ fontSize: '3.5rem', fontWeight: '900', margin: 0 }}>Book Appointment</h1>
+            <p style={{ fontSize: '1.5rem', margin: '1rem 0 0', opacity: 0.9 }}>
+              Dr. {session?.user?.name}
+            </p>
+            {patient && (
+              <div className="patient-info" style={{ marginTop: '1.5rem', padding: '1rem', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '1rem', display: 'inline-block' }}>
+                <strong>{patient.name}</strong> • Age: {patient.age}
+              </div>
+            )}
+          </div>
+
+          {/* Scrollable Content */}
+          <div ref={contentRef} className="mobile-content" style={{ padding: '3rem', overflowY: 'auto' }}>
+
+            {/* Doctors Grid */}
+            <section className="mobile-section" style={{ marginBottom: '4rem' }}>
+              <h2 style={{ fontSize: '2.2rem', fontWeight: '800', marginBottom: '2rem', color: '#1f2937' }}>Select Doctor</h2>
+              <div className="doctor-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '2rem' }}>
+                {doctors.map(d => (
+                  <div key={d.id} onClick={() => handleDoctorSelect(d)} className="doctor-card" style={{
+                    backgroundColor: selectedDoctor?.id === d.id ? '#dbeafe' : '#f8fafc',
+                    border: selectedDoctor?.id === d.id ? '4px solid #3b82f6' : '3px solid #e2e8f0',
+                    padding: '2rem', borderRadius: '1.5rem', cursor: 'pointer',
+                    boxShadow: selectedDoctor?.id === d.id ? '0 20px 40px rgba(59,130,246,0.2)' : '0 10px 25px rgba(0,0,0,0.1)',
+                    transition: 'all 0.3s ease', transform: selectedDoctor?.id === d.id ? 'scale(1.03)' : 'scale(1)'
+                  }}>
+                    <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1e40af', margin: 0 }}>Dr. {d.name}</h3>
+                    <p style={{ fontSize: '1.2rem', color: '#4b5563', margin: '0.75rem 0' }}>{d.specialization}</p>
+                    <p style={{ fontSize: '1rem', color: '#6b7280' }}>Exp: {d.experience} yrs</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Date Picker — DESKTOP: UNCHANGED, MOBILE: FITTED */}
+            {selectedDoctor && (
+              <>
+                <div ref={dateSectionRef} className="date-hint" style={{
+                  textAlign: 'center', padding: '1rem 1.5rem', background: '#dbeafe', 
+                  borderRadius: '1rem', margin: '2rem 0 1.5rem', fontSize: '1.1rem', 
+                  fontWeight: '600', color: '#1e40af'
                 }}>
-                  <h3 style={{ fontSize: '1.6rem', fontWeight: '800', color: '#1e40af', margin: 0 }}>Dr. {d.name}</h3>
-                  <p style={{ fontSize: '1.2rem', color: '#4b5563', margin: '0.75rem 0' }}>{d.specialization}</p>
-                  <p style={{ fontSize: '1rem', color: '#6b7280' }}>Exp: {d.experience} yrs</p>
+                  Select a date to see available slots
                 </div>
-              ))}
-            </div>
-          </section>
+                <div className="date-input-wrapper" style={{ maxWidth: '500px', margin: '0 auto 3rem' }}>
+                  <input 
+                    type="date" 
+                    value={selectedDate} 
+                    onChange={handleDateChange} 
+                    className="date-input"
+                    min={new Date().toISOString().split('T')[0]}
+                    style={{ 
+                      width: '100%', 
+                      padding: '1.2rem', 
+                      fontSize: '1.2rem', 
+                      border: '4px solid #fbbf24', 
+                      borderRadius: '1.5rem', 
+                      fontWeight: '700',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
 
-          {/* Date & Slots */}
-          {selectedDoctor && (
-            <>
-              <div style={{ maxWidth: '500px', margin: '0 auto 3rem' }}>
-                <input type="date" value={selectedDate} onChange={handleDateChange}
-                  min={new Date().toISOString().split('T')[0]}
-                  style={{ width: '100%', padding: '1.2rem', fontSize: '1.2rem', border: '4px solid #fbbf24', borderRadius: '1.5rem', fontWeight: '700' }}
-                />
-              </div>
-
-              {selectedDate && (
-                slotsLoading ? (
-                  <div style={{ textAlign: 'center', padding: '4rem' }}>
-                    <div style={{ width: '4rem', height: '4rem', border: '6px solid #fbbf24', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
-                  </div>
-                ) : availableSlots.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '6rem', backgroundColor: '#fffbeb', borderRadius: '2rem', border: '4px dashed #f59e0b' }}>
-                    <p style={{ fontSize: '1.8rem', color: '#92400e', fontWeight: '700' }}>No slots available on this date</p>
-                  </div>
-                ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1.5rem' }}>
-                    {availableSlots.map(slot => (
-                      <div key={slot.id} onClick={() => handleSlotSelect(slot)} style={{
-                        backgroundColor: selectedSlot?.id === slot.id ? '#d1fae5' : '#ecfdf5',
-                        border: selectedSlot?.id === slot.id ? '5px solid #059669' : '4px solid #10b981',
-                        padding: '1.5rem', borderRadius: '1.5rem', textAlign: 'center', cursor: 'pointer',
-                        boxShadow: selectedSlot?.id === slot.id ? '0 20px 40px rgba(5,150,105,0.3)' : '0 10px 25px rgba(0,0,0,0.1)',
-                        transition: 'all 0.3s ease', transform: selectedSlot?.id === slot.id ? 'scale(1.08)' : 'scale(1)'
-                      }}>
-                        <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#065f46' }}>
-                          {slot.startTime} - {slot.endTime}
+                {/* Slots & Booking Form */}
+                {selectedDate && (
+                  slotsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '4rem' }}>
+                      <div style={{ width: '4rem', height: '4rem', border: '6px solid #fbbf24', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+                    </div>
+                  ) : availableSlots.length === 0 ? (
+                    <div className="no-slots-box" style={{ textAlign: 'center', padding: '6rem', backgroundColor: '#fffbeb', borderRadius: '2rem', border: '4px dashed #f59e0b' }}>
+                      <p style={{ fontSize: '1.8rem', color: '#92400e', fontWeight: '700' }}>No slots available on this date</p>
+                    </div>
+                  ) : (
+                    <div className="slot-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1.5rem' }}>
+                      {availableSlots.map(slot => (
+                        <div key={slot.id} onClick={() => handleSlotSelect(slot)} className="slot-card" style={{
+                          backgroundColor: selectedSlot?.id === slot.id ? '#d1fae5' : '#ecfdf5',
+                          border: selectedSlot?.id === slot.id ? '5px solid #059669' : '4px solid #10b981',
+                          padding: '1.5rem', borderRadius: '1.5rem', textAlign: 'center', cursor: 'pointer',
+                          boxShadow: selectedSlot?.id === slot.id ? '0 20px 40px rgba(5,150,105,0.3)' : '0 10px 25px rgba(0,0,0,0.1)',
+                          transition: 'all 0.3s ease', transform: selectedSlot?.id === slot.id ? 'scale(1.08)' : 'scale(1)'
+                        }}>
+                          <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#065f46' }}>
+                            {slot.startTime} - {slot.endTime}
+                          </div>
+                          <div style={{ fontSize: '0.9rem', marginTop: '0.5rem', opacity: 0.8 }}>{slot.dateFormatted}</div>
                         </div>
-                        <div style={{ fontSize: '0.9rem', marginTop: '0.5rem', opacity: 0.8 }}>{slot.dateFormatted}</div>
-                      </div>
-                    ))}
-                  </div>
-                )
-              )}
-            </>
-          )}
+                      ))}
+                    </div>
+                  )
+                )}
+              </>
+            )}
 
-          {/* Booking Form */}
-          {showBookingForm && selectedSlot && (
-            <div style={{ marginTop: '4rem', padding: '3rem', backgroundColor: '#f8fafc', borderRadius: '2rem', border: '4px solid #3b82f6' }}>
-              <h2 style={{ fontSize: '2.5rem', fontWeight: '900', textAlign: 'center', color: '#1e40af', marginBottom: '2rem' }}>
-                Confirm Appointment
-              </h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '1.5rem', border: '3px solid #e5e7eb' }}>
-                  <p><strong>Patient:</strong> {patient.name}</p>
-                  <p><strong>Doctor:</strong> Dr. {selectedDoctor.name}</p>
-                  <p><strong>Date:</strong> {selectedSlot.dateFormatted}</p>
-                  <p><strong>Time:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}</p>
+            {/* Confirm Form */}
+            {showBookingForm && selectedSlot && (
+              <div className="booking-form" style={{ marginTop: '3rem', padding: '2rem', backgroundColor: '#f8fafc', borderRadius: '1.5rem', border: '4px solid #3b82f6' }}>
+                <h2 style={{ fontSize: '1.9rem', fontWeight: '900', textAlign: 'center', color: '#1e40af', marginBottom: '1.2rem' }}>
+                  Confirm Appointment
+                </h2>
+                <div className="grid">
+                  <div className="info-box" style={{ backgroundColor: 'white', padding: '1.2rem', borderRadius: '1rem', border: '2px solid #e5e7eb', fontSize: '0.85rem' }}>
+                    <p style={{ margin: '0.3rem 0' }}><strong>Patient:</strong> {patient.name}</p>
+                    <p style={{ margin: '0.3rem 0' }}><strong>Doctor:</strong> Dr. {selectedDoctor.name}</p>
+                    <p style={{ margin: '0.3rem 0' }}><strong>Date:</strong> {selectedSlot.dateFormatted}</p>
+                    <p style={{ margin: '0.3rem 0' }}><strong>Time:</strong> {selectedSlot.startTime} - {selectedSlot.endTime}</p>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '0.6rem', fontWeight: '700', fontSize: '0.95rem' }}>Reason for Visit *</label>
+                    <input type="text" name="reason" value={appointmentDetails.reason} onChange={e => setAppointmentDetails(prev => ({ ...prev, reason: e.target.value }))}
+                      placeholder="e.g. Fever" style={{ width: '100%', padding: '0.6rem', border: '2px solid #d1d5db', borderRadius: '0.8rem', fontSize: '0.9rem', boxSizing: 'border-box' }} />
+                    <label style={{ display: 'block', margin: '0.8rem 0 0.4rem', fontWeight: '700', fontSize: '0.9rem' }}>Notes (Optional)</label>
+                    <textarea name="notes_internal" value={appointmentDetails.notes_internal} onChange={e => setAppointmentDetails(prev => ({ ...prev, notes_internal: e.target.value }))}
+                      rows="2" placeholder="Any notes..." style={{ width: '100%', padding: '0.6rem', border: '2px solid #d1d5db', borderRadius: '0.8rem', fontSize: '0.9rem', resize: 'none', boxSizing: 'border-box', minHeight: '50px' }} />
+                  </div>
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '1rem', fontWeight: '700', fontSize: '1.2rem' }}>Reason for Visit *</label>
-                  <input type="text" name="reason" value={appointmentDetails.reason} onChange={e => setAppointmentDetails(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="e.g. Fever, Checkup" style={{ width: '100%', padding: '1rem', border: '3px solid #d1d5db', borderRadius: '1rem', fontSize: '1.1rem' }} />
-                  <label style={{ display: 'block', margin: '1.5rem 0 0.5rem', fontWeight: '700' }}>Notes (Optional)</label>
-                  <textarea name="notes_internal" value={appointmentDetails.notes_internal} onChange={e => setAppointmentDetails(prev => ({ ...prev, notes_internal: e.target.value }))}
-                    rows="3" placeholder="Any special instructions..." style={{ width: '100%', padding: '1rem', border: '3px solid #d1d5db', borderRadius: '1rem', fontSize: '1.1rem', resize: 'vertical' }} />
+                <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+                  <button onClick={handleBookAppointment} disabled={bookingLoading || !appointmentDetails.reason.trim()}
+                    style={{ backgroundColor: bookingLoading || !appointmentDetails.reason.trim() ? '#9ca3af' : '#10b981', color: 'white', padding: '0.9rem 3rem', borderRadius: '1.5rem', border: 'none', fontWeight: '900', fontSize: '1.1rem', cursor: 'pointer', width: '100%', maxWidth: '240px' }}>
+                    {bookingLoading ? "Booking..." : "CONFIRM & BOOK"}
+                  </button>
                 </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <button onClick={handleBookAppointment} disabled={bookingLoading || !appointmentDetails.reason.trim()}
-                  style={{ backgroundColor: bookingLoading || !appointmentDetails.reason.trim() ? '#9ca3af' : '#10b981', color: 'white', padding: '1.5rem 6rem', borderRadius: '2rem', border: 'none', fontWeight: '900', fontSize: '1.8rem', cursor: 'pointer', boxShadow: '0 20px 40px rgba(16,185,129,0.4)' }}>
-                  {bookingLoading ? "Booking..." : "CONFIRM & BOOK"}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
-    </main>
+      </main>
+    </>
   );
 }

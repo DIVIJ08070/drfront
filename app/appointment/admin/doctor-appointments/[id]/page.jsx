@@ -5,11 +5,11 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 
 const LoadingSpinner = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f3f4f6' }}>
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', backgroundColor: '#f9fafb' }}>
     <div style={{
-      width: '4rem',
-      height: '4rem',
-      border: '6px solid #3b82f6',
+      width: '3.5rem',
+      height: '3.5rem',
+      border: '5px solid #3b82f6',
       borderTopColor: 'transparent',
       borderRadius: '50%',
       animation: 'spin 1s linear infinite'
@@ -24,43 +24,23 @@ export default function DoctorAppointments() {
   const { data: session, status } = useSession();
   const doctorId = params.id;
 
-  const [doctor, setDoctor] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
+  // ADMIN CHECK
   useEffect(() => {
     if (status === "authenticated" && !session?.roles?.includes("ROLE_ADMIN")) {
       router.push("/appointment");
     }
   }, [status, session, router]);
 
-  // Fetch Doctor
-  useEffect(() => {
-    if (status === "authenticated" && session?.jwt && doctorId) {
-      const fetchDoctor = async () => {
-        try {
-          const res = await fetch(`https://medify-service-production.up.railway.app/v1/doctors/${doctorId}`, {
-            headers: { 'Authorization': `Bearer ${session.jwt}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setDoctor(data);
-          }
-        } catch (err) {
-          console.error("Failed to fetch doctor");
-        }
-      };
-      fetchDoctor();
-    }
-  }, [doctorId, session, status]);
-
-  // Fetch Appointments
+  // ONLY 1 API CALL — NO DOCTOR FETCH
   const fetchAppointments = async (pageNum = 0) => {
-    if (!doctorId) return;
-    setLoading(true);
+    if (!doctorId || !session?.jwt) return;
 
+    setLoading(true);
     const url = `https://medify-service-production.up.railway.app/v1/appointments/doctor/${doctorId}?page=${pageNum}&size=10&sort=slot.slotDate,desc&sort=slot.startTime,desc`;
 
     try {
@@ -72,10 +52,14 @@ export default function DoctorAppointments() {
         const data = await res.json();
         setAppointments(data.content || []);
         setTotalPages(data.totalPages || 1);
-        setPage(data.pageable.pageNumber);
+        setPage(data.pageable?.pageNumber || 0);
+      } else {
+        console.warn(`API returned ${res.status}`);
+        setAppointments([]);
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Network error:", error);
+      setAppointments([]);
     } finally {
       setLoading(false);
     }
@@ -87,17 +71,32 @@ export default function DoctorAppointments() {
     }
   }, [doctorId, session]);
 
-  const formatDate = (d) => d.split('-').reverse().join('/');
-  const formatTime = (t) => t.slice(0, 5);
+  const formatDate = (d) => d ? d.split('-').reverse().join('/') : '-';
+  const formatTime = (t) => t ? t.slice(0, 5) : '-';
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PENDING': return '#f59e0b';
-      case 'CONFIRMED': return '#10b981';
-      case 'CANCELLED': return '#dc2626';
-      case 'COMPLETED': return '#3b82f6';
-      default: return '#6b7280';
-    }
+  const getStatusBadge = (status) => {
+    const colors = {
+      PENDING: { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' },
+      CONFIRMED: { bg: '#d1fae5', border: '#10b981', text: '#065f46' },
+      CANCELLED: { bg: '#fee2e2', border: '#dc2626', text: '#991b1b' },
+      COMPLETED: { bg: '#dbeafe', border: '#3b82f6', text: '#1e40af' }
+    };
+    const style = colors[status] || { bg: '#f3f4f6', border: '#6b7280', text: '#374151' };
+
+    return (
+      <span style={{
+        backgroundColor: style.bg,
+        border: `2px solid ${style.border}`,
+        color: style.text,
+        padding: '0.5rem 1.2rem',
+        borderRadius: '999px',
+        fontSize: '0.85rem',
+        fontWeight: '700',
+        textTransform: 'uppercase'
+      }}>
+        {status}
+      </span>
+    );
   };
 
   if (status === "loading" || loading) return <LoadingSpinner />;
@@ -106,23 +105,23 @@ export default function DoctorAppointments() {
   return (
     <main style={{
       minHeight: '100vh',
-      background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)',
-      padding: '2rem 1rem',
+      background: 'linear-gradient(135deg, #DBEAFE 0%, #C7D2FE 50%, #A78BFA 100%)',
+      padding: '1rem',
       fontFamily: 'system-ui, sans-serif'
     }}>
       <div style={{
-        maxWidth: '1300px',
+        maxWidth: '1200px',
         margin: '0 auto',
-        backgroundColor: '#ffffff',
-        borderRadius: '2rem',
-        boxShadow: '0 30px 60px -12px rgba(0, 0, 0, 0.2)',
+        backgroundColor: 'white',
+        borderRadius: '1.5rem',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
         overflow: 'hidden'
       }}>
-        {/* Header */}
+        {/* Header — NO DOCTOR NAME NEEDED */}
         <div style={{
           background: 'linear-gradient(to right, #1e40af, #3b82f6)',
           color: 'white',
-          padding: '3rem',
+          padding: '2rem',
           textAlign: 'center',
           position: 'relative'
         }}>
@@ -130,100 +129,76 @@ export default function DoctorAppointments() {
             onClick={() => router.push('/appointment/admin')}
             style={{
               position: 'absolute',
-              left: '2.5rem',
+              left: '1.5rem',
               top: '50%',
               transform: 'translateY(-50%)',
               backgroundColor: 'rgba(255,255,255,0.25)',
               color: 'white',
               border: 'none',
-              padding: '1rem 2rem',
-              borderRadius: '1rem',
-              fontWeight: '900',
+              padding: '0.6rem 1.2rem',
+              borderRadius: '0.7rem',
+              fontWeight: '700',
               cursor: 'pointer',
-              backdropFilter: 'blur(12px)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
+              backdropFilter: 'blur(10px)',
+              fontSize: '0.9rem'
             }}
           >
             Back
           </button>
-          <h1 style={{ fontSize: '3.5rem', fontWeight: '900', margin: 0, letterSpacing: '-1px' }}>
+          <h1 style={{ fontSize: '2.2rem', fontWeight: '900', margin: 0 }}>
             Doctor Appointments
           </h1>
-          {doctor && (
-            <p style={{ fontSize: '2rem', margin: '1rem 0 0', opacity: 0.95, fontWeight: '700' }}>
-              Dr. {doctor.name} • {doctor.specialization}
-            </p>
-          )}
+          <p style={{ fontSize: '1.2rem', margin: '0.5rem 0 0', opacity: 0.9 }}>
+            ID: {doctorId}
+          </p>
         </div>
 
-        <div style={{ padding: '3rem' }}>
+        <div style={{ padding: '2rem' }}>
 
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '5rem' }}>
-              <div style={{ width: '4rem', height: '4rem', border: '6px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
+            <div style={{ textAlign: 'center', padding: '3rem' }}>
+              <div style={{ width: '3rem', height: '3rem', border: '5px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' }}></div>
             </div>
           ) : appointments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '6rem', backgroundColor: '#fefce8', borderRadius: '2rem', border: '5px dashed #f59e0b' }}>
-              <h3 style={{ fontSize: '2.5rem', color: '#92400e', fontWeight: '900', margin: '0 0 1rem' }}>
-                No Appointments Yet
-              </h3>
-              <p style={{ fontSize: '1.5rem', color: '#a16207' }}>
-                Dr. {doctor?.name} has no bookings
+            <div style={{ textAlign: 'center', padding: '4rem', backgroundColor: '#fefce8', borderRadius: '1.5rem', border: '3px dashed #f59e0b' }}>
+              <p style={{ fontSize: '1.4rem', color: '#92400e', fontWeight: '700' }}>
+                No appointments for Doctor ID: {doctorId}
               </p>
             </div>
           ) : (
             <>
-              <div style={{ overflowX: 'auto', borderRadius: '1.5rem', boxShadow: '0 15px 35px rgba(0,0,0,0.1)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
+              <div style={{ overflowX: 'auto', borderRadius: '1rem' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
-                    <tr style={{ background: 'linear-gradient(to right, #1e40af, #3b82f6)', color: 'white' }}>
-                      <th style={{ padding: '1.8rem', textAlign: 'left', fontSize: '1.2rem', fontWeight: '800' }}>Patient</th>
-                      <th style={{ padding: '1.8rem', textAlign: 'left' }}>Date</th>
-                      <th style={{ padding: '1.8rem', textAlign: 'left' }}>Time</th>
-                      <th style={{ padding: '1.8rem', textAlign: 'left' }}>Reason</th>
-                      <th style={{ padding: '1.8rem', textAlign: 'left' }}>Status</th>
-                      <th style={{ padding: '1.8rem', textAlign: 'left' }}>Fees</th>
+                    <tr style={{ backgroundColor: '#1e40af', color: 'white' }}>
+                      <th style={{ padding: '1.2rem', textAlign: 'left', fontSize: '0.95rem' }}>Patient</th>
+                      <th style={{ padding: '1.2rem', textAlign: 'left' }}>Date</th>
+                      <th style={{ padding: '1.2rem', textAlign: 'left' }}>Time</th>
+                      <th style={{ padding: '1.2rem', textAlign: 'left' }}>Reason</th>
+                      <th style={{ padding: '1.2rem', textAlign: 'left' }}>Status</th>
+                      <th style={{ padding: '1.2rem', textAlign: 'left' }}>Fees</th>
                     </tr>
                   </thead>
                   <tbody>
                     {appointments.map((appt, i) => (
-                      <tr key={appt.id} style={{ 
-                        backgroundColor: i % 2 === 0 ? '#f8fafc' : '#ffffff', 
-                        borderBottom: '3px solid #e2e8f0',
-                        transition: 'all 0.3s ease'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = '#ecfdf5'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = i % 2 === 0 ? '#f8fafc' : '#ffffff'}
-                      >
-                        <td style={{ padding: '1.8rem', fontWeight: '800', color: '#1e40af', fontSize: '1.1rem' }}>
-                          {appt.patient.name}
+                      <tr key={appt.id} style={{ backgroundColor: i % 2 === 0 ? '#f8fafc' : 'white', borderBottom: '1px solid #e5e7eb' }}>
+                        <td style={{ padding: '1.2rem', fontWeight: '700', color: '#1e40af' }}>
+                          {appt.patient?.name || 'Unknown'}
                         </td>
-                        <td style={{ padding: '1.8rem', fontWeight: '700' }}>
-                          {formatDate(appt.slot.slot_date)}
+                        <td style={{ padding: '1.2rem', fontWeight: '600' }}>
+                          {formatDate(appt.slot?.slot_date)}
                         </td>
-                        <td style={{ padding: '1.8rem' }}>
-                          {formatTime(appt.slot.start_time)} - {formatTime(appt.slot.end_time)}
+                        <td style={{ padding: '1.2rem' }}>
+                          {formatTime(appt.slot?.start_time)} - {formatTime(appt.slot?.end_time)}
                         </td>
-                        <td style={{ padding: '1.8rem', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {appt.reason || "-"}
+                        <td style={{ padding: '1.2rem' }}>
+                          {appt.reason || '-'}
                         </td>
-                        <td style={{ padding: '1.8rem' }}>
-                          <span style={{
-                            backgroundColor: getStatusColor(appt.status),
-                            color: 'white',
-                            padding: '0.7rem 1.5rem',
-                            borderRadius: '999px',
-                            fontWeight: '900',
-                            fontSize: '1rem',
-                            textTransform: 'uppercase',
-                            letterSpacing: '1px',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
-                          }}>
-                            {appt.status}
-                          </span>
+                        <td style={{ padding: '1.2rem' }}>
+                          {getStatusBadge(appt.status)}
                         </td>
-                        <td style={{ padding: '1.8rem', fontWeight: '900', color: '#065f46', fontSize: '1.2rem' }}>
-                          ₹{appt.price}
+                        <td style={{ padding: '1.2rem', fontWeight: '700' }}>
+                          ₹{appt.price || 0}
                         </td>
                       </tr>
                     ))}
@@ -232,40 +207,36 @@ export default function DoctorAppointments() {
               </div>
 
               {/* Pagination */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', marginTop: '3rem', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.8rem', marginTop: '1.5rem', alignItems: 'center' }}>
                 <button
                   onClick={() => fetchAppointments(page - 1)}
                   disabled={page === 0}
                   style={{
-                    padding: '1.2rem 3rem',
+                    padding: '0.8rem 1.5rem',
                     backgroundColor: page === 0 ? '#9ca3af' : '#3b82f6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '1rem',
-                    fontWeight: '900',
-                    fontSize: '1.2rem',
-                    cursor: page === 0 ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 10px 30px rgba(59,130,246,0.4)'
+                    borderRadius: '0.7rem',
+                    fontWeight: '700',
+                    fontSize: '0.9rem'
                   }}
                 >
-                  Previous
+                  Prev
                 </button>
-                <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#1f2937' }}>
-                  Page {page + 1} of {totalPages}
+                <span style={{ fontSize: '1rem', fontWeight: '600', color: '#374151' }}>
+                  Page {page + 1} / {totalPages}
                 </span>
                 <button
                   onClick={() => fetchAppointments(page + 1)}
                   disabled={page >= totalPages - 1}
                   style={{
-                    padding: '1.2rem 3rem',
-                    backgroundColor: page >= totalPages - 1 ? '#9ca3af' : '#10b981',
+                    padding: '0.8rem 1.5rem',
+                    backgroundColor: page >= totalPages - 1 ? '#9ca3af' : '#3b82f6',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '1rem',
-                    fontWeight: '900',
-                    fontSize: '1.2rem',
-                    cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 10px 30px rgba(16,185,129,0.4)'
+                    borderRadius: '0.7rem',
+                    fontWeight: '700',
+                    fontSize: '0.9rem'
                   }}
                 >
                   Next
