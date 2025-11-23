@@ -4,17 +4,8 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 
 export default function PayuSuccessPage() {
-  const sp = useSearchParams();
   const router = useRouter();
-  const [params, setParams] = useState({});
 
-  useEffect(() => {
-    const obj = {};
-    for (const key of sp.keys()) {
-      obj[key] = sp.get(key);
-    }
-    setParams(obj);
-  }, [sp]);
 
   const txId = params.txnid || params.txnId || params.transaction_id || params.mihpayid || '';
 
