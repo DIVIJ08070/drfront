@@ -42,7 +42,7 @@ export default function AdminDashboard() {
       const fetchDoctors = async () => {
         setLoading(true);
         try {
-          const res = await fetch('https://medify-service-production.up.railway.app/v1/doctors', {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors`, {
             headers: { 'Authorization': `Bearer ${session.jwt}` }
           });
           if (res.ok) {
@@ -75,7 +75,7 @@ export default function AdminDashboard() {
     setSlots([]);
 
     try {
-      const url = `https://medify-service-production.up.railway.app/v1/doctors/slots?doctorId=${doctorId}`;
+      const url = `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots?doctorId=${doctorId}`;
       const res = await fetch(url, { headers: { 'Authorization': `Bearer ${session.jwt}` } });
 
       if (res.ok) {
@@ -85,6 +85,12 @@ export default function AdminDashboard() {
         setSlots(filtered);
       } else {
         setSlots([]);
+        if(res.status==403) {
+          router.push('/');
+        }
+        else if(res.status==417) {
+          router.push('/add-details');
+        }
       }
     } catch (error) {
       console.error("Error:", error);
@@ -125,7 +131,7 @@ export default function AdminDashboard() {
     };
 
     try {
-      const res = await fetch('https://medify-service-production.up.railway.app/v1/doctors/slots', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.jwt}`,
@@ -139,7 +145,15 @@ export default function AdminDashboard() {
         fetchSlots(selectedDoctor.id, selectedDate);
       } else {
         const err = await res.text();
-        alert("Failed: " + err);
+        if(res.status==403) {
+          router.push('/');
+        }
+        else if(res.status==417) {
+          router.push('/add-details');
+        }
+        else {
+          alert("Failed: " + err);
+        }
       }
     } catch (err) {
       alert("Network error");
@@ -149,7 +163,7 @@ export default function AdminDashboard() {
   const deleteSlot = async (slotId) => {
     if (!confirm("Delete?")) return;
     try {
-      const res = await fetch(`https://medify-service-production.up.railway.app/v1/doctors/slots/${slotId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots/${slotId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       });
@@ -166,7 +180,7 @@ export default function AdminDashboard() {
     const email = makeAdminEmail.trim();
     if (!email) return alert("Enter email");
 
-    const res = await fetch('https://medify-service-production.up.railway.app/v1/auth/make-admin', {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/auth/make-admin`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${session.jwt}`,

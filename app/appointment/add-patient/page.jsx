@@ -58,7 +58,7 @@ export default function AddPatientPage() {
     };
 
     try {
-      const res = await fetch('https://medify-service-production.up.railway.app/v1/patients', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/patients`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.jwt}`,
@@ -185,7 +185,7 @@ export default function AddPatientPage() {
               />
             </div>
 
-            {/* Weight (kg) */}
+            {/* Weight (kg)
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                 Weight (kg)
@@ -201,7 +201,7 @@ export default function AddPatientPage() {
               />
             </div>
 
-            {/* Height (feet) */}
+            // Height
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>
                 Height (feet)
@@ -215,7 +215,7 @@ export default function AddPatientPage() {
                 placeholder="5.6"
                 style={{ width: '100%', padding: '0.75rem 1rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', boxSizing: 'border-box' }}
               />
-            </div>
+            </div> */}
           </div>
 
           {/* Buttons */}
