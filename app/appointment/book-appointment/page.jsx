@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 
+/* ---------- Loading spinner ---------- */
 const LoadingSpinner = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)' }}>
     <div style={{ width: '4rem', height: '4rem', border: '6px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
@@ -11,6 +12,14 @@ const LoadingSpinner = () => (
   </div>
 );
 
+/* ---------- PayU endpoints selection ---------- */
+// Use NEXT_PUBLIC_PAYU_ENV = 'test' (default) or 'prod'
+const PAYU_ENDPOINTS = {
+  test: 'https://test.payu.in/_payment',
+  prod: 'https://secure.payu.in/_payment'
+};
+
+/* ---------- Main component ---------- */
 export default function BookAppointmentPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -27,12 +36,16 @@ export default function BookAppointmentPage() {
   const [showBookingForm, setShowBookingForm] = useState(false);
   const [appointmentDetails, setAppointmentDetails] = useState({ reason: "", notes_internal: "" });
 
+  // After booking: terms & payment modal
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [justBookedAppointment, setJustBookedAppointment] = useState(null); // appointment object from backend
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState(null);
+
   // Refs
   const dateSectionRef = useRef(null);
   const bookingFormRef = useRef(null);
   const contentRef = useRef(null);
-
-  const IDEMPOTENCY_KEY_PREFIX = 'appointment-';
 
   useEffect(() => {
     if (status === "unauthenticated") router.push('/');
@@ -57,14 +70,13 @@ export default function BookAppointmentPage() {
           if (res.ok) {
             const data = await res.json();
             setDoctors(data.doctors || []);
-          } else if(res.status==403) {
+          } else if (res.status == 403) {
             router.push('/');
-          }
-          else if(res.status==417) {
+          } else if (res.status == 417) {
             router.push('/add-details');
           }
         } catch (err) {
-          console.error("Failed to fetch doctors");
+          console.error("Failed to fetch doctors", err);
         } finally {
           setLoading(false);
         }
@@ -104,43 +116,33 @@ export default function BookAppointmentPage() {
             endTime: s.end_time.slice(0, 5)
           }));
         setAvailableSlots(filtered);
-      } else if(res.status==403) {
+      } else if (res.status == 403) {
         router.push('/');
-      }
-      else if(res.status==417) {
+      } else if (res.status == 417) {
         router.push('/add-details');
       }
     } catch (err) {
+      console.error("Failed to fetch slots", err);
       setAvailableSlots([]);
     } finally {
       setSlotsLoading(false);
     }
   };
 
-  // AUTO SCROLL TO DATE PICKER
+  // SCROLL HELPERS
   const scrollToDatePicker = () => {
     if (!dateSectionRef.current || !contentRef.current) return;
     const headerOffset = window.innerWidth <= 640 ? 160 : 200;
     const elementPosition = dateSectionRef.current.getBoundingClientRect().top + window.pageYOffset;
     const offsetPosition = elementPosition - headerOffset;
-
-    contentRef.current.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    });
+    contentRef.current.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   };
-
-  // AUTO SCROLL TO CONFIRM FORM
   const scrollToConfirmForm = () => {
     if (!bookingFormRef.current || !contentRef.current) return;
     const headerOffset = window.innerWidth <= 640 ? 140 : 180;
     const elementPosition = bookingFormRef.current.getBoundingClientRect().top + window.pageYOffset;
     const offsetPosition = elementPosition - headerOffset;
-
-    contentRef.current.scrollTo({
-      top: offsetPosition,
-      behavior: 'smooth'
-    });
+    contentRef.current.scrollTo({ top: offsetPosition, behavior: 'smooth' });
   };
 
   const handleDoctorSelect = (doctor) => {
@@ -163,15 +165,22 @@ export default function BookAppointmentPage() {
   const handleSlotSelect = (slot) => {
     setSelectedSlot(slot);
     setShowBookingForm(true);
-    // Auto-scroll to confirm form after render
     setTimeout(scrollToConfirmForm, 150);
   };
 
+  // parse response safely
+  const tryParseJson = async (res) => {
+    const txt = await res.text();
+    try { return JSON.parse(txt); } catch { return txt; }
+  };
+
+  /* ---------- BOOK APPOINTMENT ---------- */
   const handleBookAppointment = async () => {
     if (!appointmentDetails.reason.trim()) return;
 
     setBookingLoading(true);
     try {
+      // Re-validate slot
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots?doctorId=${selectedDoctor.id}`, {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       });
@@ -186,13 +195,13 @@ export default function BookAppointmentPage() {
           setBookingLoading(false);
           return;
         }
-      } else if(res.status==403) {
+      } else if (res.status == 403) {
         router.push('/');
-      }
-      else if(res.status==417) {
+        return;
+      } else if (res.status == 417) {
         router.push('/add-details');
+        return;
       }
-
 
       const payload = {
         doctor_id: selectedDoctor.id,
@@ -203,11 +212,8 @@ export default function BookAppointmentPage() {
       };
 
       const storageKey = `appt:${payload.patient_id}:slot:${payload.slot_id}:idempotencyKey`;
-
-      // get or generate idempotency key
       let idempotencyKey = localStorage.getItem(storageKey);
       if (!idempotencyKey) {
-        // crypto.randomUUID() is standard in modern browsers
         idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
           ? crypto.randomUUID()
           : 'idemp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
@@ -225,13 +231,47 @@ export default function BookAppointmentPage() {
       });
 
       if (bookRes.ok) {
+        const booked = await tryParseJson(bookRes);
         localStorage.removeItem(storageKey);
-        alert("Appointment booked successfully!");
-        router.push('/appointment');
+
+        // Helpers to safely read nested fields
+        const serverSlot = booked && booked.slot ? booked.slot : null;
+        const serverDate = serverSlot?.slot_date || booked?.slot_date || booked?.date || null;
+
+        // normalize time strings like "02:00:00" -> "02:00"
+        const normalizeTime = (t) => {
+          if (!t) return null;
+          return t.length >= 5 ? t.slice(0,5) : t;
+        };
+
+        const serverTime = (serverSlot && (serverSlot.start_time || serverSlot.end_time))
+    ? `${normalizeTime(serverSlot.start_time)} - ${normalizeTime(serverSlot.end_time)}`
+    : (booked?.time || booked?.slot_time || null);
+
+        const appointmentObj = (booked && booked.id) ? booked : {
+          id: (booked && booked.appointmentId) ? booked.appointmentId : null,
+          doctor_id: selectedDoctor.id,
+          slot_id: selectedSlot.id,
+          patient_id: patient.id,
+           // human-friendly date/time with fallbacks
+          date: serverDate ? (
+            // prefer server date in yyyy-mm-dd, convert to dd/mm/yyyy for display
+            serverDate.includes('-') ? serverDate.split('-').reverse().join('/') : serverDate
+          ) : (selectedSlot?.dateFormatted || null),
+
+          time: serverTime || (selectedSlot ? `${selectedSlot.startTime} - ${selectedSlot.endTime}` : null),
+            raw: booked
+        };
+
+        console.log("slots"+selectedSlot.dateFormatted)
+        setJustBookedAppointment(appointmentObj);
+        setShowTermsModal(true);
+        // don't navigate away; let user decide to pay now or later
       } else {
-        const err = await bookRes.text();
+        const err = await tryParseJson(bookRes);
         localStorage.removeItem(storageKey);
-        alert("Failed to book: " + (JSON.parse(err)?.message || "Try again"));
+        const message = (err && err.message) ? err.message : (typeof err === 'string' ? err : 'Booking failed');
+        alert("Failed to book: " + message);
       }
     } catch (err) {
       console.log("Error: ", err);
@@ -241,6 +281,106 @@ export default function BookAppointmentPage() {
     }
   };
 
+  /* ---------- PAYU PAYMENT (client side) ---------- */
+  // choose endpoint
+  const payuEnv = (process.env.NEXT_PUBLIC_PAYU_ENV || 'test').toLowerCase();
+  const payuEndpoint = PAYU_ENDPOINTS[payuEnv === 'prod' ? 'prod' : 'test'];
+
+  // post hidden form to PayU
+  const postFormToUrl = (actionUrl, params) => {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = actionUrl;
+    form.style.display = 'none';
+
+    Object.entries(params).forEach(([k, v]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = k;
+      input.value = v == null ? '' : String(v);
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+    setTimeout(() => form.remove(), 1500);
+  };
+
+  // Initiate payment: call your backend and submit to PayU _payment endpoint
+  const handleInitiatePayment = async () => {
+    if (!justBookedAppointment || !justBookedAppointment.id) {
+      setPaymentError("Appointment ID unavailable. Please contact support.");
+      return;
+    }
+    setPaymentError(null);
+    setPaymentLoading(true);
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/payments/initiateTransaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.jwt}`,
+          'appointment_id': justBookedAppointment.id
+        },
+        body: JSON.stringify({})
+      });
+
+      if (!res.ok) {
+        const err = await tryParseJson(res);
+        const msg = (err && err.message) ? err.message : `Payment initiation failed (HTTP ${res.status})`;
+        setPaymentError(msg);
+        setPaymentLoading(false);
+        return;
+      }
+
+      const dto = await res.json();
+
+      // Build PayU payload from backend DTO (must include server-generated hash)
+      const payuPayload = {
+        key: dto.key || '',
+        txnid: dto.txnid || '',
+        amount: dto.amount != null ? String(dto.amount) : '',
+        productinfo: dto.productinfo || '',
+        firstname: dto.firstname || '',
+        email: dto.email || '',
+        phone: dto.phone || '',
+        udf1: dto.udf1 ?? '',
+        udf2: dto.udf2 ?? '',
+        udf3: dto.udf3 ?? '',
+        udf4: dto.udf4 ?? '',
+        udf5: dto.udf5 ?? '',
+        hash: dto.hash || '',
+        // success / failure redirect (optional overrides from backend)
+        surl: dto.surl || `${window.location.origin}/payu/success`,
+        furl: dto.furl || `${window.location.origin}/payu/failure`
+      };
+
+      // Validate
+      if (!payuPayload.key || !payuPayload.txnid || !payuPayload.amount || !payuPayload.hash) {
+        setPaymentError('Invalid payment response from server. Missing key/txnid/amount/hash.');
+        setPaymentLoading(false);
+        return;
+      }
+
+      // Submit to PayU
+      postFormToUrl(payuEndpoint, payuPayload);
+      // navigation will occur; don't set loading false here
+    } catch (err) {
+      console.error('Payment initiation error', err);
+      setPaymentError('Network error while initiating payment. Try again.');
+      setPaymentLoading(false);
+    }
+  };
+
+  // Pay later
+  const handlePayLater = () => {
+    setShowTermsModal(false);
+    alert('Appointment confirmed. You can pay later from your Appointments page.');
+    router.push('/appointment');
+  };
+
+  /* ---------- RENDER ---------- */
   if (status === "loading" || loading) return <LoadingSpinner />;
 
   return (
@@ -253,75 +393,27 @@ export default function BookAppointmentPage() {
             box-shadow: none !important; height: 100vh !important; display: flex !important; 
             flex-direction: column !important; overflow: hidden !important;
           }
-          .mobile-header { padding: 1.5rem 1rem 1rem !important; }
-          .mobile-header h1 { font-size: 1.8rem !important; }
-          .mobile-header p { font-size: 1rem !important; margin: 0.4rem 0 0 !important; }
-          .mobile-header button { padding: 0.5rem 0.8rem !important; font-size: 0.85rem !important; left: 0.6rem !important; border-radius: 0.7rem !important; }
-          .patient-info { font-size: 0.85rem !important; padding: 0.5rem 0.9rem !important; margin-top: 0.8rem !important; border-radius: 0.7rem !important; }
-
-          .mobile-content { 
-            flex: 1 !important; overflow-y: auto !important; padding: 1rem !important; 
-            scroll-behavior: smooth !important;
-          }
-
-          .mobile-section h2 { font-size: 1.5rem !important; margin-bottom: 0.8rem !important; }
-          .doctor-grid { gap: 0.8rem !important; }
-          .doctor-card { padding: 1rem !important; border-radius: 0.9rem !important; }
-          .doctor-card h3 { font-size: 1.1rem !important; }
-          .doctor-card p { font-size: 0.85rem !important; margin: 0.3rem 0 !important; }
-
-          .date-hint { 
-            text-align: center; padding: 0.8rem 1rem; background: #dbeafe; 
-            border-radius: 0.8rem; margin: 1rem 0; font-size: 0.9rem; 
-            font-weight: 600; color: #1e40af;
-          }
-
-          /* MOBILE: Smaller calendar */
-          .date-input-wrapper { 
-            margin: 0 0 1.2rem !important; 
-            padding: 0 0.5rem !important; 
-            box-sizing: border-box !important;
-          }
-          .date-input { 
-            width: 100% !important; 
-            padding: 0.65rem 0.5rem !important; 
-            font-size: 0.9rem !important; 
-            border: 3px solid #fbbf24 !important; 
-            border-radius: 0.9rem !important; 
-            box-sizing: border-box !important;
-            max-width: 100% !important;
-          }
-
-          .slot-grid { gap: 0.7rem !important; }
-          .slot-card { padding: 0.9rem !important; border-radius: 0.9rem !important; }
-          .slot-card div:first-child { font-size: 1rem !important; }
-          .slot-card div:last-child { font-size: 0.7rem !important; }
-
-          .no-slots-box { padding: 2rem 1.2rem !important; border-radius: 1rem !important; }
-          .no-slots-box p { font-size: 1.1rem !important; }
-
-          .booking-form { 
-            padding: 1rem !important; margin-top: 1.5rem !important; 
-            border-radius: 1rem !important; overflow: hidden !important;
-            border: 3px solid #3b82f6 !important;
-          }
-          .booking-form h2 { font-size: 1.4rem !important; margin-bottom: 0.8rem !important; }
-          .booking-form .grid { gap: 0.8rem !important; display: flex !important; flex-direction: column !important; }
-          .booking-form .info-box { padding: 0.9rem !important; border-radius: 0.8rem !important; font-size: 0.8rem !important; line-height: 1.3 !important; }
-          .booking-form .info-box p { margin: 0.2rem 0 !important; }
-          .booking-form label { font-size: 0.9rem !important; margin-bottom: 0.3rem !important; font-weight: 600 !important; }
-          .booking-form input, .booking-form textarea { 
-            width: 100% !important; padding: 0.5rem !important; font-size: 0.85rem !important; 
-            border: 2px solid #d1d5db !important; border-radius: 0.7rem !important; 
-            box-sizing: border-box !important; max-width: 100% !important; overflow: hidden !important;
-          }
-          .booking-form textarea { min-height: 50px !important; margin-top: 0.3rem !important; resize: none !important; }
-          .booking-form button { 
-            padding: 0.8rem 1.5rem !important; font-size: 1rem !important; 
-            width: 100% !important; max-width: 220px !important; 
-            border-radius: 1.2rem !important; margin: 1rem auto 0 !important; display: block !important;
-          }
         }
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(2,6,23,0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 2000;
+        }
+        .modal {
+          background: white;
+          border-radius: 1rem;
+          max-width: 760px;
+          width: 95%;
+          padding: 1.5rem;
+          box-shadow: 0 30px 60px rgba(2,6,23,0.4);
+        }
+        .terms-list { margin: 0; padding-left: 1.2rem; color: #0f172a; }
+        .terms-list li { margin: 0.6rem 0; font-weight: 600; }
+        .tc-note { margin-top: 0.6rem; font-size: 0.95rem; color: #334155; }
       `}</style>
 
       <main className="mobile-fullscreen" style={{ minHeight: '100vh', background: 'linear-gradient(to bottom right, #DBEAFE, #C7D2FE)', padding: '2rem', fontFamily: 'system-ui, sans-serif' }}>
@@ -430,7 +522,7 @@ export default function BookAppointmentPage() {
               </>
             )}
 
-            {/* Confirm Form — AUTO-SCROLL TARGET */}
+            {/* Confirm Form */}
             {showBookingForm && selectedSlot && (
               <div ref={bookingFormRef} className="booking-form" style={{ marginTop: '3rem', padding: '2rem', backgroundColor: '#f8fafc', borderRadius: '1.5rem', border: '4px solid #3b82f6' }}>
                 <h2 style={{ fontSize: '1.9rem', fontWeight: '900', textAlign: 'center', color: '#1e40af', marginBottom: '1.2rem' }}>
@@ -463,6 +555,54 @@ export default function BookAppointmentPage() {
           </div>
         </div>
       </main>
+
+      {/* Terms & Payment Modal */}
+      {showTermsModal && justBookedAppointment && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal" role="document">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.6rem', color: '#0f172a' }}>Booking Confirmed</h2>
+                <p style={{ margin: '0.4rem 0 0', color: '#334155' }}>Appointment ID: <strong>{justBookedAppointment.id || 'N/A'}</strong></p>
+                <p style={{ margin: '0.2rem 0 0', color: '#334155' }}>{justBookedAppointment.date} • {justBookedAppointment.time}</p>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ display: 'inline-block', padding: '0.4rem 0.8rem', background: '#0ea5e9', color: 'white', borderRadius: '0.6rem', fontWeight: 800 }}>Next: Payment</div>
+              </div>
+            </div>
+
+            <hr style={{ margin: '1rem 0', border: 'none', height: '1px', background: '#e6edf7' }} />
+
+            <div>
+              <h3 style={{ margin: '0 0 0.6rem 0', color: '#0f172a' }}>Terms & Conditions</h3>
+              <ul className="terms-list">
+                <li>Slot times may change based on doctor's availability. We will inform you in advance where possible.</li>
+                <li>Cancellations must be done at least 12 hours before the appointment to be eligible for refund.</li>
+                <li>No refund will be provided for cancellations made within 12 hours of the appointment.</li>
+                <li>Please arrive 10 minutes early and carry valid ID and any prior reports.</li>
+                <li>By proceeding to payment you agree to our clinic policies.</li>
+              </ul>
+              <p className="tc-note">If you prefer not to pay now, you can pay later from your Appointments page. Payment failure does not cancel your appointment automatically. Contact support for assistance.</p>
+            </div>
+
+            {paymentError && <div style={{ marginTop: '0.8rem', color: '#b91c1c', fontWeight: 700 }}>{paymentError}</div>}
+
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.2rem' }}>
+              <button onClick={handlePayLater} style={{ flex: 1, background: '#e2e8f0', color: '#0f172a', padding: '0.9rem 1rem', borderRadius: '0.8rem', fontWeight: 800 }}>
+                Pay Later
+              </button>
+
+              <button onClick={handleInitiatePayment} disabled={paymentLoading} style={{ flex: 1, background: paymentLoading ? '#9ca3af' : '#3b82f6', color: 'white', padding: '0.9rem 1rem', borderRadius: '0.8rem', fontWeight: 900 }}>
+                {paymentLoading ? 'Processing...' : 'Make Payment'}
+              </button>
+            </div>
+
+            <div style={{ marginTop: '0.8rem', fontSize: '0.85rem', color: '#475569' }}>
+              <strong>Note:</strong> You will be redirected to a secure PayU page to complete the transaction.
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
