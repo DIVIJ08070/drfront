@@ -1,13 +1,11 @@
 'use client';
 
-import { useSearchParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function PayuSuccessPage() {
   const router = useRouter();
 
 
-  const txId = params.txnid || params.txnId || params.transaction_id || params.mihpayid || '';
 
   const handleCopy = async (text) => {
     try {
