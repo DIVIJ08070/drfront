@@ -1,10 +1,24 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 
 export default function PayuSuccessPage() {
   const router = useRouter();
 
+  const sp = useSearchParams();
+
+  const [params, setParams] = useState({});
+
+  useEffect(() => {
+    const obj = {};
+    for (const key of sp.keys()) {
+      obj[key] = sp.get(key);
+    }
+    setParams(obj);
+  }, [sp]);
+
+  const txId = params.txnid || params.txnId || params.transaction_id || params.mihpayid || '';
 
   const handleCopy = async (text) => {
     try {
@@ -16,7 +30,7 @@ export default function PayuSuccessPage() {
   };
 
   return (
-    <>
+    <Suspense fallback={<p>Loading</p>}>
       <style jsx>{`
         :root {
           --acc1: #1e3a8a;
@@ -138,6 +152,6 @@ export default function PayuSuccessPage() {
           </div>
         </div>
       </main>
-    </>
+    </Suspense>
   );
 }
