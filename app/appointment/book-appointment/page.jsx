@@ -32,6 +32,8 @@ export default function BookAppointmentPage() {
   const bookingFormRef = useRef(null);
   const contentRef = useRef(null);
 
+  const IDEMPOTENCY_KEY_PREFIX = 'appointment-';
+
   useEffect(() => {
     if (status === "unauthenticated") router.push('/');
   }, [status, router]);
@@ -49,12 +51,17 @@ export default function BookAppointmentPage() {
       const fetchDoctors = async () => {
         setLoading(true);
         try {
-          const res = await fetch('https://medify-service-production.up.railway.app/v1/doctors', {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors`, {
             headers: { 'Authorization': `Bearer ${session.jwt}` }
           });
           if (res.ok) {
             const data = await res.json();
             setDoctors(data.doctors || []);
+          } else if(res.status==403) {
+            router.push('/');
+          }
+          else if(res.status==417) {
+            router.push('/add-details');
           }
         } catch (err) {
           console.error("Failed to fetch doctors");
@@ -82,7 +89,7 @@ export default function BookAppointmentPage() {
     }
     setSlotsLoading(true);
     try {
-      const res = await fetch(`https://medify-service-production.up.railway.app/v1/doctors/slots?doctorId=${doctorId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots?doctorId=${doctorId}`, {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       });
       if (res.ok) {
@@ -97,6 +104,11 @@ export default function BookAppointmentPage() {
             endTime: s.end_time.slice(0, 5)
           }));
         setAvailableSlots(filtered);
+      } else if(res.status==403) {
+        router.push('/');
+      }
+      else if(res.status==417) {
+        router.push('/add-details');
       }
     } catch (err) {
       setAvailableSlots([]);
@@ -160,7 +172,7 @@ export default function BookAppointmentPage() {
 
     setBookingLoading(true);
     try {
-      const res = await fetch(`https://medify-service-production.up.railway.app/v1/doctors/slots?doctorId=${selectedDoctor.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors/slots?doctorId=${selectedDoctor.id}`, {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       });
       if (res.ok) {
@@ -174,7 +186,13 @@ export default function BookAppointmentPage() {
           setBookingLoading(false);
           return;
         }
+      } else if(res.status==403) {
+        router.push('/');
       }
+      else if(res.status==417) {
+        router.push('/add-details');
+      }
+
 
       const payload = {
         doctor_id: selectedDoctor.id,
@@ -184,23 +202,39 @@ export default function BookAppointmentPage() {
         notes_internal: appointmentDetails.notes_internal.trim()
       };
 
-      const bookRes = await fetch('https://medify-service-production.up.railway.app/v1/appointments', {
+      const storageKey = `appt:${payload.patient_id}:slot:${payload.slot_id}:idempotencyKey`;
+
+      // get or generate idempotency key
+      let idempotencyKey = localStorage.getItem(storageKey);
+      if (!idempotencyKey) {
+        // crypto.randomUUID() is standard in modern browsers
+        idempotencyKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'idemp-' + Date.now() + '-' + Math.random().toString(36).slice(2, 9);
+        localStorage.setItem(storageKey, idempotencyKey);
+      }
+
+      const bookRes = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/appointments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.jwt}`
+          'Authorization': `Bearer ${session.jwt}`,
+          'X-Idempotency-Key': idempotencyKey
         },
         body: JSON.stringify(payload)
       });
 
       if (bookRes.ok) {
+        localStorage.removeItem(storageKey);
         alert("Appointment booked successfully!");
         router.push('/appointment');
       } else {
         const err = await bookRes.text();
+        localStorage.removeItem(storageKey);
         alert("Failed to book: " + (JSON.parse(err)?.message || "Try again"));
       }
     } catch (err) {
+      console.log("Error: ", err);
       alert("Network error. Please try again.");
     } finally {
       setBookingLoading(false);

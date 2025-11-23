@@ -144,13 +144,13 @@ const AuthCard = () => {
         {isLogin ? 'Continue with Google' : 'Sign up with Google'}
       </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', margin: '2rem 0' }}>
+      {/* <div style={{ display: 'flex', alignItems: 'center', margin: '2rem 0' }}>
         <div style={{ flexGrow: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
         <span style={{ margin: '0 1rem', color: '#94a3b8', fontSize: '0.9rem', fontWeight: '600' }}>OR</span>
         <div style={{ flexGrow: 1, height: '1px', backgroundColor: '#e2e8f0' }} />
-      </div>
+      </div> */}
 
-      <form onSubmit={isLogin ? handleCredentialsLogin : handleCredentialsSignup}>
+      {/* <form onSubmit={isLogin ? handleCredentialsLogin : handleCredentialsSignup}>
         <div style={{ marginBottom: '1.25rem', textAlign: 'left' }}>
           <label style={{ display: 'block', fontSize: '0.95rem', fontWeight: '600', color: '#374151', marginBottom: '0.5rem' }}>
             Email Address
@@ -241,7 +241,7 @@ const AuthCard = () => {
         <button onClick={toggleAuthMode} style={{ fontWeight: '700', color: '#3b82f6', background: 'none', border: 'none', cursor: 'pointer', marginLeft: '0.5rem', textDecoration: 'underline' }}>
           {isLogin ? 'Create account' : 'Sign in'}
         </button>
-      </p>
+      </p> */}
     </div>
   );
 };
@@ -268,7 +268,7 @@ export default function Page() {
       padding: '1rem',
       boxSizing: 'border-box'
     }}>
-      {status === "unauthenticated" ? <AuthCard /> : <LoadingSpinner />}
+      <AuthCard />
     </main>
   );
 }

@@ -31,7 +31,7 @@ export default function PatientHistoryPage() {
       const patientData = JSON.parse(saved);
       setPatient(patientData);
 
-      fetch('https://medify-service-production.up.railway.app/v1/appointments', {
+      fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/appointments`, {
         headers: {
           'Authorization': `Bearer ${session.jwt}`,
           'patientId': patientData.id.toString(),
@@ -39,7 +39,13 @@ export default function PatientHistoryPage() {
         }
       })
         .then(res => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          if(res.status==403) {
+          router.push('/');
+          }
+          else if(res.status==417) {
+            router.push('/add-details');
+          }
+          else if (!res.ok) throw new Error(`HTTP ${res.status}`);
           return res.json();
         })
         .then(data => {

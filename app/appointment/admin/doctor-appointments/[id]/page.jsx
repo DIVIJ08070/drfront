@@ -41,7 +41,7 @@ export default function DoctorAppointments() {
     if (!doctorId || !session?.jwt) return;
 
     setLoading(true);
-    const url = `https://medify-service-production.up.railway.app/v1/appointments/doctor/${doctorId}?page=${pageNum}&size=10&sort=slot.slotDate,desc&sort=slot.startTime,desc`;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/appointments/doctor/${doctorId}?page=${pageNum}&size=10&sort=slot.slotDate,desc&sort=slot.startTime,desc`;
 
     try {
       const res = await fetch(url, {
@@ -56,6 +56,12 @@ export default function DoctorAppointments() {
       } else {
         console.warn(`API returned ${res.status}`);
         setAppointments([]);
+        if(res.status==403) {
+          router.push('/');
+        }
+        else if(res.status==417) {
+          router.push('/add-details');
+        }
       }
     } catch (error) {
       console.error("Network error:", error);

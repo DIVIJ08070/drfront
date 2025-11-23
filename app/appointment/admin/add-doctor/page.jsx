@@ -43,7 +43,7 @@ export default function AddDoctorPage() {
     };
 
     try {
-      const res = await fetch('https://medify-service-production.up.railway.app/v1/doctors', {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_BASE_URL}/v1/doctors`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.jwt}`,

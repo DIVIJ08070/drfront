@@ -4,6 +4,9 @@ import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL;
+
+
 const LoadingSpinner = () => (
   <div style={{
     display: 'flex',
@@ -122,12 +125,21 @@ export default function AppointmentPage() {
   useEffect(() => {
     if (status === "authenticated" && session?.jwt) {
       setLoading(true);
-      fetch('https://medify-service-production.up.railway.app/v1/patients', {
+      fetch(`${BACKEND_BASE_URL}/v1/patients`, {
         headers: { 'Authorization': `Bearer ${session.jwt}` }
       })
-        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(res => res.ok ? res.json() : Promise.reject(res))
         .then(data => setPatients(data.patients || []))
-        .catch(() => setPatients([]))
+        .catch(err => {
+          setPatients([]);
+          console.log("error: ", err)
+          if(err.status==403) {
+            router.push('/');
+          }
+          else if(err.status==417) {
+            router.push('/add-details');
+          }
+        })
         .finally(() => setLoading(false));
     }
   }, [status, session?.jwt]);
