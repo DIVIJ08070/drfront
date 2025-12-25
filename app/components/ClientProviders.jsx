@@ -11,8 +11,8 @@ export default function ClientProviders({ children }) {
   return (
     <SessionProvider>
       <ForegroundMessageListener />
-      <PushInitializer />
       <RegisterSW />
+      <PushInitializer />
       {children}
       <ToastContainer />
     </SessionProvider>
