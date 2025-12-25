@@ -1,21 +1,22 @@
-'use client'
+
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import ForegroundMessageListener from "./components/ForegroundMessageListener";
-import PushInitializer from "./components/PushInitializer";
-import { ToastContainer } from 'react-toastify';
+import ClientProviders from "./components/ClientProviders";
 import 'react-toastify/dist/ReactToastify.css';
+
+export const metadata = {
+  title: "My PWA",
+  manifest: "/manifest.json",
+  generator: "Next.js",
+  themeColor: "#000000"
+};
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <ForegroundMessageListener />
-        <SessionProvider>
-          <PushInitializer />
+        <ClientProviders>
           {children}
-        </SessionProvider>
-        <ToastContainer />
+        </ClientProviders>
       </body>
     </html>
   );
