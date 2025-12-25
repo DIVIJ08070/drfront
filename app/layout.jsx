@@ -1,11 +1,7 @@
 
 import "./globals.css";
-import { SessionProvider } from "next-auth/react";
-import ForegroundMessageListener from "./components/ForegroundMessageListener";
-import PushInitializer from "./components/PushInitializer";
-import { ToastContainer } from 'react-toastify';
+import ClientProviders from "./components/ClientProviders";
 import 'react-toastify/dist/ReactToastify.css';
-import RegisterSW from "./components/RegisterSW";
 
 export const metadata = {
   title: "My PWA",
@@ -17,13 +13,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body>
-        <ForegroundMessageListener />
-        <SessionProvider>
-          <PushInitializer />
-          <RegisterSW />
+        <ClientProviders>
           {children}
-        </SessionProvider>
-        <ToastContainer />
+        </ClientProviders>
       </body>
     </html>
   );
