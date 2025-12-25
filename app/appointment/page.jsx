@@ -228,7 +228,7 @@ export default function AppointmentPage() {
                 </p>
               </div>
               <button
-                onClick={() => signOut({ callbackUrl: '/' })}
+                onClick={() => { sessionStorage.removeItem('fcm_initialized'); signOut({ callbackUrl: '/' }); }}
                 style={{
                   backgroundColor: '#fee2e2',
                   color: '#dc2626',
