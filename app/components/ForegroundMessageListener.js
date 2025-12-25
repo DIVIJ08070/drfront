@@ -1,18 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { onForegroundMessage } from "@/lib/firebase-messaging";
+import { toast } from 'react-toastify';
 
 export default function ForegroundMessageListener() {
+  const unsubscribeRef = useRef(null);
+
   useEffect(() => {
-    const unsubscribe = onForegroundMessage(payload => {
-      console.log("Foreground push:", payload);
+    const setup = async () => {
+      const unsubscribe = await onForegroundMessage(payload => {
+        const { title, body, url } = payload.data || {};
+        console.log("Foreground message received:", { title, body, url });
+        // Only show notification if the tab is visible
+        if (document.visibilityState === 'visible') {
+          toast.info(`${title}: ${body}`, {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+          });
+        }
+      });
+      unsubscribeRef.current = unsubscribe;
+    };
 
-      // YOU decide UI
-      alert(payload.data.title + " - " + payload.data.body);
-    });
+    setup();
 
-    return unsubscribe;
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+    console.log("ForegroundMessageListener mounted");
   }, []);
 
   return null;
