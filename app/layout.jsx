@@ -6,6 +6,7 @@ import 'react-toastify/dist/ReactToastify.css';
 export const metadata = {
   title: "My PWA",
   manifest: "/manifest.json",
+  generator: "Next.js",
   themeColor: "#000000"
 };
 
