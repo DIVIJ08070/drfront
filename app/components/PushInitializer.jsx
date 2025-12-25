@@ -8,10 +8,12 @@ export default function PushInitializer() {
   const { data: session } = useSession();
 
   useEffect(() => {
+    console.log("PushInitializer mounted with session:", session);
     if (!session || sessionStorage.getItem('fcm_initialized')) return;
 
     const initializePush = async () => {
       const token = await getOrCreateFcmToken();
+      console.log("FCM Token obtained:", token);
       if (!token) return;
 
       try {
