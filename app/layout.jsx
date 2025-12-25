@@ -1,4 +1,4 @@
-'use client'
+
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
 import ForegroundMessageListener from "./components/ForegroundMessageListener";
